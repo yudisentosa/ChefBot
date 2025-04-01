@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from chatbot import ChefBot
+import json
 
 @pytest.fixture
 def mock_api_response():
@@ -30,7 +31,7 @@ def test_suggest_recipe_success(mock_post, mock_api_response):
         "choices": [
             {
                 "message": {
-                    "content": str(mock_api_response)
+                    "content": json.dumps(mock_api_response)  # Properly format JSON string
                 }
             }
         ]
