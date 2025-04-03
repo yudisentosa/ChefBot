@@ -1,6 +1,6 @@
 Flask==3.0.0
 python-dotenv==1.0.0
-gradio==3.50.2
+gradio==4.44.1
 SQLAlchemy==2.0.25
 deepseek==1.0.0
 pytest==7.4.3

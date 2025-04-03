@@ -124,15 +124,16 @@ Cooking Time: {recipe.get('cooking_time', 'N/A')} minutes
         except Exception as e:
             return f"Error: {str(e)}"
 
-    def handle_get_recipe(self, servings: int) -> str:
+    def handle_get_recipe(self, servings: str) -> str:
         """Handle getting recipe suggestions with serving size."""
         try:
             ingredients = self._get_ingredients()
             if not ingredients:
                 return "Error: No ingredients available. Please add some ingredients first."
-                
-            recipe = self._get_recipe_suggestion(servings)
-            return self._format_recipe(recipe, servings)
+            
+            servings_int = int(servings)
+            recipe = self._get_recipe_suggestion(servings_int)
+            return self._format_recipe(recipe, servings_int)
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -309,8 +310,8 @@ def main():
     interface = ui.create_ui()
     interface.launch(
         server_name="0.0.0.0",
-        server_port=7861,  
-        share=True,
+        server_port=7861,
+        share=False,
         inbrowser=True
     )
 
