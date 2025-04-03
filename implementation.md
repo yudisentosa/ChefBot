@@ -53,6 +53,8 @@
   - [ ] Chat input area
   - [ ] Recipe display format
   - [ ] Missing ingredients display
+  - [ ] Serving size adjustment dropdown (2, 4, 6, 8 persons)
+  - [ ] Dynamic ingredient quantity calculation based on serving size
 
 ## Phase 5: Integration and Testing
 - [ ] Integrate frontend with backend APIs
@@ -68,6 +70,9 @@
 - [ ] Add input validation and sanitization
 - [ ] Enhance error messages and user feedback
 - [ ] Optimize API response times
+- [ ] Implement batch update and delete for ingredients
+- [ ] Add ingredient categorization and filtering
+- [ ] Implement recipe favoriting and history
 
 ## Phase 7: Documentation and Deployment
 - [ ] Write API documentation
@@ -78,10 +83,20 @@
 
 ## Success Criteria
 - Application successfully suggests recipes based on available ingredients
-- Users can manage their ingredient inventory
+- Users can manage their ingredient inventory (add, update, delete)
 - Chatbot provides clear and relevant recipe suggestions
 - Interface is responsive and user-friendly
 - System handles errors gracefully
 - API responses are fast and efficient
+- Recipes can be adjusted for different serving sizes
+- Ingredient quantities automatically scale with serving size changes
 
-
+## Quality Assurance Testing
+- [ ] Verify all CRUD operations for ingredients work correctly
+- [ ] Test ingredient update and delete functionality
+- [ ] Validate serving size adjustment correctly scales ingredient quantities
+- [ ] Ensure recipe suggestions are appropriate for available ingredients
+- [ ] Verify error handling for API failures
+- [ ] Test UI responsiveness across different devices
+- [ ] Validate data persistence across sessions
+- [ ] Perform security testing for API endpoints
