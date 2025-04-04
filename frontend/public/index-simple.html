@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chef Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    .ingredient-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .ingredient-name {
+      flex: 1;
+      font-weight: 500;
+    }
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      background: #f5f5f5;
+      border-radius: 4px;
+      margin: 0 10px;
+    }
+    .quantity-btn {
+      cursor: pointer;
+      padding: 5px 10px;
+    }
+    .quantity-value {
+      padding: 0 10px;
+      min-width: 40px;
+      text-align: center;
+    }
+    .delete-btn {
+      color: #ff4d4f;
+      cursor: pointer;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+  <!-- Header -->
+  <header class="bg-white shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-6">
+      <div class="flex items-center gap-3">
+        <div class="text-2xl text-blue-600">👨‍🍳</div>
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Chef Bot</h1>
+          <p class="text-sm text-gray-500">Your AI-powered cooking assistant</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="bg-white border-b">
+    <div class="max-w-5xl mx-auto px-4">
+      <div class="flex space-x-8">
+        <button
+          id="inventory-tab"
+          class="py-4 px-1 border-b-2 border-blue-500 text-blue-600 font-medium text-sm"
+        >
+          Kitchen Inventory
+        </button>
+        <button
+          id="suggestions-tab"
+          class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm"
+        >
+          Recipe Suggestions
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Error message -->
+  <div id="error-container" class="max-w-5xl mx-auto px-4 py-2 mt-4 hidden">
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+      <span id="error-message"></span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Inventory Tab -->
+    <div id="inventory-content" class="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Available Ingredients</h2>
+        <p class="mt-1 text-sm text-gray-500">Manage your kitchen inventory</p>
+      </div>
+
+      <div id="loading-ingredients" class="p-8 text-center text-gray-500">Loading ingredients...</div>
+      
+      <div id="ingredients-list" class="divide-y divide-gray-200 hidden"></div>
+
+      <div class="p-4">
+        <div class="flex gap-3">
+          <input
+            type="text"
+            id="new-ingredient-name"
+            placeholder="Add new ingredient"
+            class="flex-1 border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <input
+            type="number"
+            id="new-ingredient-quantity"
+            value="1"
+            min="0.1"
+            step="0.1"
+            class="w-20 border rounded-lg px-4 py-2 text-gray-900"
+          />
+          <select
+            id="new-ingredient-unit"
+            class="border rounded-lg px-3 py-2 text-gray-700"
+          >
+            <option value="pieces">pieces</option>
+            <option value="grams">grams</option>
+            <option value="kg">kg</option>
+            <option value="ml">ml</option>
+            <option value="liters">liters</option>
+            <option value="cups">cups</option>
+            <option value="tbsp">tbsp</option>
+            <option value="tsp">tsp</option>
+          </select>
+          <button
+            id="add-ingredient-btn"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recipe Suggestions Tab -->
+    <div id="suggestions-content" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hidden">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-900">Recipe Suggestions</h2>
+        <p class="mt-1 text-sm text-gray-500">Get recipe ideas based on your ingredients</p>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Number of Servings</label>
+        <div class="flex gap-3 items-center">
+          <select
+            id="servings-select"
+            class="border rounded-lg px-3 py-2 text-gray-700 bg-white"
+          >
+            <option value="2">2 servings</option>
+            <option value="4">4 servings</option>
+            <option value="6">6 servings</option>
+            <option value="8">8 servings</option>
+          </select>
+          <button
+            id="get-recipe-btn"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          >
+            Get Recipe Suggestion
+          </button>
+        </div>
+      </div>
+
+      <div id="recipe-loading" class="hidden">
+        <div class="flex justify-center py-8">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+
+      <div id="recipe-content" class="hidden"></div>
+
+      <div id="recipe-placeholder" class="flex items-center justify-center flex-col gap-4 text-gray-400 py-12">
+        <div class="text-5xl">📖</div>
+        <p class="text-lg">Get recipe suggestions based on your ingredients</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:8000/api/v1';
+    
+    // DOM Elements
+    const inventoryTab = document.getElementById('inventory-tab');
+    const suggestionsTab = document.getElementById('suggestions-tab');
+    const inventoryContent = document.getElementById('inventory-content');
+    const suggestionsContent = document.getElementById('suggestions-content');
+    const errorContainer = document.getElementById('error-container');
+    const errorMessage = document.getElementById('error-message');
+    const loadingIngredients = document.getElementById('loading-ingredients');
+    const ingredientsList = document.getElementById('ingredients-list');
+    const newIngredientName = document.getElementById('new-ingredient-name');
+    const newIngredientQuantity = document.getElementById('new-ingredient-quantity');
+    const newIngredientUnit = document.getElementById('new-ingredient-unit');
+    const addIngredientBtn = document.getElementById('add-ingredient-btn');
+    const servingsSelect = document.getElementById('servings-select');
+    const getRecipeBtn = document.getElementById('get-recipe-btn');
+    const recipeLoading = document.getElementById('recipe-loading');
+    const recipeContent = document.getElementById('recipe-content');
+    const recipePlaceholder = document.getElementById('recipe-placeholder');
+
+    // Tab switching
+    inventoryTab.addEventListener('click', () => {
+      inventoryTab.classList.add('border-blue-500', 'text-blue-600');
+      inventoryTab.classList.remove('border-transparent', 'text-gray-500');
+      suggestionsTab.classList.remove('border-blue-500', 'text-blue-600');
+      suggestionsTab.classList.add('border-transparent', 'text-gray-500');
+      inventoryContent.classList.remove('hidden');
+      suggestionsContent.classList.add('hidden');
+    });
+
+    suggestionsTab.addEventListener('click', () => {
+      suggestionsTab.classList.add('border-blue-500', 'text-blue-600');
+      suggestionsTab.classList.remove('border-transparent', 'text-gray-500');
+      inventoryTab.classList.remove('border-blue-500', 'text-blue-600');
+      inventoryTab.classList.add('border-transparent', 'text-gray-500');
+      suggestionsContent.classList.remove('hidden');
+      inventoryContent.classList.add('hidden');
+    });
+
+    // Error handling
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorContainer.classList.remove('hidden');
+      setTimeout(() => {
+        errorContainer.classList.add('hidden');
+      }, 5000);
+    }
+
+    // Fetch ingredients
+    async function fetchIngredients() {
+      try {
+        loadingIngredients.classList.remove('hidden');
+        ingredientsList.classList.add('hidden');
+        
+        const response = await fetch(`${API_BASE_URL}/ingredients`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch ingredients');
+        }
+        
+        const ingredients = await response.json();
+        renderIngredients(ingredients);
+      } catch (error) {
+        showError(error.message);
+        loadingIngredients.textContent = 'Failed to load ingredients. Please try again.';
+      }
+    }
+
+    // Render ingredients list
+    function renderIngredients(ingredients) {
+      loadingIngredients.classList.add('hidden');
+      ingredientsList.innerHTML = '';
+      
+      if (ingredients.length === 0) {
+        loadingIngredients.textContent = 'No ingredients yet. Add some to get started!';
+        loadingIngredients.classList.remove('hidden');
+        return;
+      }
+      
+      ingredients.forEach(ingredient => {
+        const item = document.createElement('div');
+        item.className = 'ingredient-item';
+        item.innerHTML = `
+          <span class="ingredient-name">${ingredient.name}</span>
+          <div class="quantity-control">
+            <div class="quantity-btn decrease" data-id="${ingredient.id}">−</div>
+            <div class="quantity-value">${ingredient.quantity}</div>
+            <div class="quantity-btn increase" data-id="${ingredient.id}">+</div>
+          </div>
+          <select class="unit-select" data-id="${ingredient.id}">
+            ${['pieces', 'grams', 'kg', 'ml', 'liters', 'cups', 'tbsp', 'tsp']
+              .map(unit => `<option value="${unit}" ${unit === ingredient.unit ? 'selected' : ''}>${unit}</option>`)
+              .join('')}
+          </select>
+          <div class="delete-btn" data-id="${ingredient.id}">×</div>
+        `;
+        
+        // Add event listeners
+        const decreaseBtn = item.querySelector('.decrease');
+        const increaseBtn = item.querySelector('.increase');
+        const unitSelect = item.querySelector('.unit-select');
+        const deleteBtn = item.querySelector('.delete-btn');
+        
+        decreaseBtn.addEventListener('click', () => {
+          handleQuantityChange(ingredient.id, false);
+        });
+        
+        increaseBtn.addEventListener('click', () => {
+          handleQuantityChange(ingredient.id, true);
+        });
+        
+        unitSelect.addEventListener('change', (e) => {
+          handleUnitChange(ingredient.id, e.target.value);
+        });
+        
+        deleteBtn.addEventListener('click', () => {
+          handleDelete(ingredient.id);
+        });
+        
+        ingredientsList.appendChild(item);
+      });
+      
+      ingredientsList.classList.remove('hidden');
+    }
+
+    // Handle quantity change
+    async function handleQuantityChange(id, increment) {
+      try {
+        const items = ingredientsList.querySelectorAll('.ingredient-item');
+        const item = Array.from(items).find(item => item.querySelector('.decrease').dataset.id == id);
+        const quantityEl = item.querySelector('.quantity-value');
+        const unitEl = item.querySelector('.unit-select');
+        
+        const currentQuantity = parseFloat(quantityEl.textContent);
+        const newQuantity = increment ? currentQuantity + 1 : Math.max(0.1, currentQuantity - 1);
+        
+        const response = await fetch(`${API_BASE_URL}/ingredients/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            quantity: newQuantity,
+            unit: unitEl.value
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update ingredient');
+        }
+        
+        // Update UI
+        quantityEl.textContent = newQuantity;
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    // Handle unit change
+    async function handleUnitChange(id, newUnit) {
+      try {
+        const items = ingredientsList.querySelectorAll('.ingredient-item');
+        const item = Array.from(items).find(item => item.querySelector('.unit-select').dataset.id == id);
+        const quantityEl = item.querySelector('.quantity-value');
+        
+        const response = await fetch(`${API_BASE_URL}/ingredients/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            quantity: parseFloat(quantityEl.textContent),
+            unit: newUnit
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update ingredient');
+        }
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    // Handle delete
+    async function handleDelete(id) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/ingredients/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete ingredient');
+        }
+        
+        // Refresh ingredients list
+        fetchIngredients();
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    // Add new ingredient
+    async function handleAddIngredient() {
+      try {
+        const name = newIngredientName.value.trim();
+        const quantity = parseFloat(newIngredientQuantity.value);
+        const unit = newIngredientUnit.value;
+        
+        if (!name) {
+          showError('Ingredient name is required');
+          return;
+        }
+        
+        if (isNaN(quantity) || quantity <= 0) {
+          showError('Quantity must be a positive number');
+          return;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/ingredients`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name,
+            quantity,
+            unit
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to add ingredient');
+        }
+        
+        // Reset form
+        newIngredientName.value = '';
+        newIngredientQuantity.value = '1';
+        newIngredientUnit.value = 'pieces';
+        
+        // Refresh ingredients list
+        fetchIngredients();
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    // Get recipe suggestion
+    async function handleGetRecipe() {
+      try {
+        const servings = servingsSelect.value;
+        
+        recipePlaceholder.classList.add('hidden');
+        recipeContent.classList.add('hidden');
+        recipeLoading.classList.remove('hidden');
+        
+        const response = await fetch(`${API_BASE_URL}/recipes/suggest?servings=${servings}`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to get recipe suggestion');
+        }
+        
+        const recipe = await response.json();
+        renderRecipe(recipe);
+      } catch (error) {
+        recipeLoading.classList.add('hidden');
+        recipePlaceholder.classList.remove('hidden');
+        showError(error.message);
+      }
+    }
+
+    // Render recipe
+    function renderRecipe(recipe) {
+      recipeLoading.classList.add('hidden');
+      
+      recipeContent.innerHTML = `
+        <div class="border rounded-lg overflow-hidden">
+          <div class="bg-blue-50 p-4 border-b">
+            <h3 class="text-xl font-bold text-gray-900">${recipe.recipe_name}</h3>
+            <p class="text-sm text-gray-500">Serves ${recipe.servings} • ${recipe.cooking_time} min • ${recipe.difficulty_level} difficulty</p>
+          </div>
+          
+          <div class="p-4 space-y-6">
+            <div>
+              <h4 class="font-medium text-gray-900 mb-2">Ingredients</h4>
+              <ul class="space-y-1">
+                ${recipe.ingredients_required.map(ingredient => `<li class="text-gray-700">• ${ingredient}</li>`).join('')}
+              </ul>
+            </div>
+            
+            ${recipe.missing_ingredients.length > 0 ? `
+              <div>
+                <h4 class="font-medium text-amber-600 mb-2">Missing Ingredients</h4>
+                <ul class="space-y-1">
+                  ${recipe.missing_ingredients.map(ingredient => `<li class="text-amber-600">• ${ingredient}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            
+            <div>
+              <h4 class="font-medium text-gray-900 mb-2">Instructions</h4>
+              <ol class="space-y-2 list-decimal list-inside">
+                ${recipe.instructions.map(step => `<li class="text-gray-700">${step}</li>`).join('')}
+              </ol>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      recipeContent.classList.remove('hidden');
+    }
+
+    // Event listeners
+    addIngredientBtn.addEventListener('click', handleAddIngredient);
+    getRecipeBtn.addEventListener('click', handleGetRecipe);
+
+    // Initialize
+    fetchIngredients();
+  </script>
+</body>
+</html>

@@ -1,9 +1,11 @@
 # Chef Bot - Development Documentation
 
 ## Project Overview
-Chef Bot is an AI-powered recipe suggestion web application that helps users discover recipes based on their available ingredients.
+Chef Bot is an AI-powered recipe suggestion web application that helps users discover recipes based on their available ingredients. The application uses a FastAPI backend and React frontend to provide a modern, responsive user experience.
 
 ## Quick Start
+
+### Backend Setup
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -12,27 +14,50 @@ git clone <repository-url>
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install backend dependencies
+cd backend
 pip install -r requirements.txt
 
 # Set up environment variables
-# Create .env file with:
-CHEFBOT_API_KEY=your_deepseek_api_key
+# Create .env file in the backend directory with:
+DATABASE_URL=sqlite:///./chef_bot.db  # or your PostgreSQL connection string
+DEEPSEEK_API_KEY=your_deepseek_api_key
 
-# Run the application
-python app.py
+# Run the backend server
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Frontend Setup
+```bash
+# In a new terminal, navigate to the frontend directory
+cd frontend
+
+# Install frontend dependencies
+npm install
+
+# Start the development server
+npm start
 ```
 
 ## Development Guidelines
 
 ### Code Structure
-- `app.py`: Main Flask application entry point
-- `chatbot.py`: DeepSeek integration and recipe suggestion logic
-- `database.py`: Database models and operations
-- `config.py`: Configuration settings and environment variables
-- `models/`: Database models
-- `templates/`: HTML templates
-- `static/`: CSS, JavaScript, and other static files
+
+#### Backend (FastAPI)
+- `backend/main.py`: Main FastAPI application entry point
+- `backend/app/`: Application package
+  - `api/`: API endpoints and routers
+  - `core/`: Core application settings
+  - `db/`: Database models and connection
+  - `schemas/`: Pydantic schemas for data validation
+  - `services/`: Business logic and external services
+
+#### Frontend (React)
+- `frontend/src/`: Source code
+  - `App.tsx`: Main application component
+  - `components/`: Reusable UI components
+  - `services/`: API service functions
+  - `types/`: TypeScript type definitions
 
 ### Coding Standards
 1. **Python Style Guide**
@@ -88,16 +113,20 @@ Each feature must pass these checks before approval:
 
 ### Ingredient Management
 ```
-GET /api/ingredients
-POST /api/ingredients
-PUT /api/ingredients/<id>
-DELETE /api/ingredients/<id>
+GET /api/v1/ingredients - Get all ingredients
+POST /api/v1/ingredients - Create a new ingredient
+GET /api/v1/ingredients/{id} - Get a specific ingredient
+PUT /api/v1/ingredients/{id} - Update an ingredient
+DELETE /api/v1/ingredients/{id} - Delete an ingredient
 ```
 
 ### Recipe Suggestions
 ```
-POST /api/suggest-recipe
+POST /api/v1/recipes/suggest?servings={servings} - Get recipe suggestions
 ```
+
+### Swagger Documentation
+API documentation is available at `/docs` when the backend server is running.
 
 ## Version Control
 ```bash
