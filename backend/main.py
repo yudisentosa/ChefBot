@@ -7,8 +7,9 @@ import logging
 import os
 
 from app.core.config import settings
-from app.api.endpoints import ingredients, recipes
+from app.api.endpoints import ingredients, recipes, auth, saved_recipes
 from app.db.base import Base, engine
+from app.db.migrations import run_migrations
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+# Run migrations
+run_migrations()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -46,6 +50,16 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/recipes",
     tags=["recipes"],
 )
+app.include_router(
+    auth.router,
+    prefix=f"{settings.API_V1_STR}/auth",
+    tags=["auth"],
+)
+app.include_router(
+    saved_recipes.router,
+    prefix=f"{settings.API_V1_STR}/saved-recipes",
+    tags=["saved-recipes"],
+)
 
 # Mount static files directory
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -66,6 +80,8 @@ def api_info():
         "endpoints": {
             "/api/v1/ingredients": "Ingredient management endpoints",
             "/api/v1/recipes/suggest": "Recipe suggestion endpoint",
+            "/api/v1/auth": "Authentication endpoints",
+            "/api/v1/saved-recipes": "Saved recipes management endpoints",
             "/docs": "API documentation",
         }
     }

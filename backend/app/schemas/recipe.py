@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 class RecipeBase(BaseModel):
     recipe_name: str = Field(..., description="Name of the recipe")
@@ -12,3 +13,40 @@ class RecipeBase(BaseModel):
 
 class RecipeResponse(RecipeBase):
     pass
+
+
+class SavedRecipeBase(RecipeBase):
+    notes: Optional[str] = Field(None, description="User notes about the recipe")
+
+
+class SavedRecipeCreate(SavedRecipeBase):
+    pass
+
+
+class SavedRecipeUpdate(BaseModel):
+    recipe_name: Optional[str] = None
+    ingredients_required: Optional[List[str]] = None
+    instructions: Optional[List[str]] = None
+    difficulty_level: Optional[str] = None
+    cooking_time: Optional[str] = None
+    servings: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class SavedRecipeInDB(SavedRecipeBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SavedRecipeResponse(SavedRecipeBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

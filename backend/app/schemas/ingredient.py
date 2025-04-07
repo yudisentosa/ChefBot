@@ -23,6 +23,7 @@ class Ingredient(IngredientBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    user_id: Optional[int] = None
 
     class Config:
         from_attributes = True  # For SQLAlchemy model compatibility

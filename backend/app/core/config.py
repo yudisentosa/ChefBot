@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Chef Bot"
     
+    # Auth settings
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "jK8Hs2Q9zP3tR7xY1vN5bC6aE4dF8gL0mW2nX9pZ3rT7yU6iO1")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 7 days
+    
     # CORS settings
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost",

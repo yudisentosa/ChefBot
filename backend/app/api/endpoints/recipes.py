@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/suggest", response_model=RecipeResponse)
 async def suggest_recipe(
-    servings: int = Query(2, ge=1, le=10, description="Number of servings"),
+    request: dict,
     db: Session = Depends(get_db)
 ):
     """
@@ -30,6 +30,11 @@ async def suggest_recipe(
     ingredient_names = [ingredient.name for ingredient in ingredients]
     
     try:
+        # Get servings from request body or use default
+        servings = request.get('servings', 2)
+        # Ensure servings is an integer between 1 and 10
+        servings = max(1, min(10, int(servings)))
+        
         # Initialize DeepSeek service
         deepseek_service = DeepSeekService()
         

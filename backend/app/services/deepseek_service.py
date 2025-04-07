@@ -22,8 +22,10 @@ class DeepSeekService:
         """
         # Try to get API key from provided parameter, DEEPSEEK_API_KEY, or CHEFBOT_API_KEY
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY") or os.getenv("CHEFBOT_API_KEY")
+        self.use_mock = not self.api_key
         if not self.api_key:
-            raise ValueError("DeepSeek API key is required. Set DEEPSEEK_API_KEY or CHEFBOT_API_KEY environment variable.")
+            self.logger = logging.getLogger(__name__)
+            self.logger.warning("DeepSeek API key not found. Using mock responses.")
         
         self.logger = logging.getLogger(__name__)
     
@@ -85,6 +87,11 @@ class DeepSeekService:
     
     async def _call_deepseek_api(self, prompt: str) -> str:
         """Make API call to DeepSeek."""
+        # Use mock response if API key is not available
+        if self.use_mock:
+            self.logger.info("Using mock response instead of calling DeepSeek API")
+            return self._get_mock_response(prompt)
+        
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -169,3 +176,78 @@ class DeepSeekService:
             raise Exception(f"Failed to parse recipe response: {str(e)}")
         except Exception as e:
             raise Exception(f"Error processing recipe: {str(e)}")
+            
+    def _get_mock_response(self, prompt: str) -> str:
+        """Generate a mock response when API key is not available."""
+        # Extract ingredients from the prompt
+        ingredients_start = prompt.find("using these ingredients: ") + len("using these ingredients: ")
+        ingredients_end = prompt.find(".", ingredients_start)
+        ingredients_text = prompt[ingredients_start:ingredients_end]
+        ingredients_list = [ing.strip() for ing in ingredients_text.split(',')]
+        
+        # Extract servings from the prompt
+        servings_start = prompt.find("Create a recipe for ") + len("Create a recipe for ")
+        servings_end = prompt.find(" servings", servings_start)
+        servings = prompt[servings_start:servings_end]
+        
+        # Create a mock recipe based on the available ingredients
+        if any(ing in ['egg', 'eggs'] for ing in ingredients_list):
+            recipe_name = "Simple Omelette"
+            instructions = [
+                "Beat the eggs in a bowl and season with salt and pepper.",
+                "Heat a non-stick pan over medium heat and add butter or oil.",
+                "Pour in the egg mixture and cook for 2-3 minutes until the bottom is set.",
+                "Add any additional ingredients like cheese, vegetables, or herbs.",
+                "Fold the omelette in half and cook for another minute.",
+                "Serve hot with your favorite side dishes."
+            ]
+            difficulty = "easy"
+            cooking_time = "15"
+        elif any(ing in ['chicken', 'beef', 'pork', 'meat'] for ing in ingredients_list):
+            recipe_name = "Simple Stir Fry"
+            instructions = [
+                "Cut the meat into thin strips and marinate with soy sauce and garlic.",
+                "Chop any vegetables into bite-sized pieces.",
+                "Heat oil in a wok or large pan over high heat.",
+                "Cook the meat until browned, about 3-4 minutes.",
+                "Add the vegetables and stir-fry for another 3-4 minutes.",
+                "Add sauce and seasonings, then cook for 1-2 more minutes.",
+                "Serve hot over rice or noodles."
+            ]
+            difficulty = "medium"
+            cooking_time = "25"
+        else:
+            recipe_name = "Mixed Vegetable Salad"
+            instructions = [
+                "Wash and chop all vegetables into bite-sized pieces.",
+                "Combine all ingredients in a large bowl.",
+                "In a small bowl, whisk together olive oil, vinegar, salt, and pepper for the dressing.",
+                "Pour the dressing over the salad and toss to combine.",
+                "Chill in the refrigerator for 30 minutes before serving."
+            ]
+            difficulty = "easy"
+            cooking_time = "15"
+        
+        # Format ingredients with quantities
+        ingredients_with_qty = []
+        for ing in ingredients_list:
+            if ing in ['egg', 'eggs']:
+                ingredients_with_qty.append(f"{int(servings) * 2} {ing}")
+            elif ing in ['salt', 'pepper', 'oil', 'vinegar']:
+                ingredients_with_qty.append(f"1 teaspoon {ing}")
+            elif ing in ['water', 'milk', 'juice']:
+                ingredients_with_qty.append(f"{int(servings) * 100} ml {ing}")
+            else:
+                ingredients_with_qty.append(f"{int(servings) * 50} g {ing}")
+        
+        # Create the mock response in JSON format
+        mock_response = {
+            "recipe_name": recipe_name,
+            "ingredients_required": ingredients_with_qty,
+            "missing_ingredients": [],
+            "instructions": instructions,
+            "difficulty_level": difficulty,
+            "cooking_time": cooking_time
+        }
+        
+        return json.dumps(mock_response, indent=2)
