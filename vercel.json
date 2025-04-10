@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/main_supabase.py",
+      "src": "backend/api_vercel.py",
       "use": "@vercel/python"
     },
     {
@@ -17,14 +17,15 @@
     },
     {
       "src": "/api/(.*)",
-      "dest": "/backend/main_supabase.py"
+      "dest": "/backend/api_vercel.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/backend/main_supabase.py"
+      "dest": "/backend/api_vercel.py"
     }
   ],
   "env": {
-    "PYTHONPATH": "."
+    "PYTHONPATH": ".",
+    "VERCEL_DEPLOYMENT": "true"
   }
 }

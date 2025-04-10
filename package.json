@@ -1,0 +1,13 @@
+{
+  "name": "chef-bot",
+  "version": "1.0.0",
+  "description": "AI-powered recipe suggestion web application",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "start": "python backend/api_vercel.py"
+  },
+  "author": "",
+  "license": "MIT"
+}
