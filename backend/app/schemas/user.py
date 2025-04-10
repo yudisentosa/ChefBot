@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 
 
@@ -20,11 +20,11 @@ class UserUpdate(BaseModel):
 
 
 class UserInDB(UserBase):
-    id: int
+    id: str
     google_id: str
     is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
 
     model_config = {
         "from_attributes": True
@@ -32,7 +32,7 @@ class UserInDB(UserBase):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: str
     is_active: bool
 
     model_config = {
@@ -46,7 +46,7 @@ class GoogleAuthRequest(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None
     exp: Optional[int] = None
 
 

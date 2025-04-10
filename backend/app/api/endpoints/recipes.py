@@ -1,24 +1,27 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
-from ...db.base import get_db
-from ...db.models import Ingredient
+from ...db.supabase_client import get_supabase_client
 from ...schemas.recipe import RecipeResponse
 from ...services.deepseek_service import DeepSeekService
+from ...services.auth_service import get_current_user
 
 router = APIRouter()
 
 @router.post("/suggest", response_model=RecipeResponse)
 async def suggest_recipe(
     request: dict,
-    db: Session = Depends(get_db)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     Suggest a recipe based on available ingredients.
     """
-    # Get all ingredients from the database
-    ingredients = db.query(Ingredient).all()
+    # Get Supabase client
+    supabase = get_supabase_client()
+    
+    # Get all ingredients from the database for the current user
+    response = supabase.table("ingredients").select("name").eq("user_id", current_user["id"]).execute()
+    ingredients = response.data
     
     if not ingredients:
         raise HTTPException(
@@ -27,7 +30,7 @@ async def suggest_recipe(
         )
     
     # Extract ingredient names for recipe suggestion
-    ingredient_names = [ingredient.name for ingredient in ingredients]
+    ingredient_names = [ingredient["name"] for ingredient in ingredients]
     
     try:
         # Get servings from request body or use default

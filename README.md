@@ -39,6 +39,54 @@ npm install
 npm start
 ```
 
+## Deployment Instructions
+
+### Docker Deployment
+
+The easiest way to deploy Chef Bot is using Docker:
+
+```bash
+# Build and start the Docker container
+docker-compose up -d --build
+
+# The application will be available at http://localhost:8000
+```
+
+### Heroku Deployment
+
+To deploy to Heroku:
+
+```bash
+# Login to Heroku
+heroku login
+
+# Create a new Heroku app
+heroku create chef-bot-app
+
+# Set environment variables
+heroku config:set DEEPSEEK_API_KEY=your_deepseek_api_key
+heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
+heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
+heroku config:set SECRET_KEY=your_secret_key
+heroku config:set ACCESS_TOKEN_EXPIRE_MINUTES=10080
+
+# Push to Heroku
+git push heroku main
+```
+
+### Manual Deployment
+
+For manual deployment on a VPS or cloud server:
+
+1. Clone the repository on your server
+2. Set up environment variables in a `.env` file
+3. Install dependencies: `pip install -r backend/requirements.txt`
+4. Run with a production WSGI server:
+   ```bash
+   cd backend
+   gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app
+   ```
+
 ## Development Guidelines
 
 ### Code Structure

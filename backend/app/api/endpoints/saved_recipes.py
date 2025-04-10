@@ -1,99 +1,112 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
-from sqlalchemy.orm import Session
-from typing import List, Any
+from typing import List, Any, Dict
+import uuid
 
-from ...db.base import get_db
-from ...db.models import SavedRecipe, User
+from ...db.supabase_client import get_supabase_client
 from ...schemas.recipe import SavedRecipeCreate, SavedRecipeResponse, SavedRecipeUpdate
-from ...services.auth_service import AuthService
+from ...services.auth_service import get_current_user
 
 router = APIRouter()
 
 @router.post("", response_model=SavedRecipeResponse)
 async def create_saved_recipe(
     recipe: SavedRecipeCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService.get_current_user)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Any:
     """
     Save a recipe to the user's collection.
     """
+    supabase = get_supabase_client()
+    
     # Create new saved recipe
-    db_recipe = SavedRecipe(
-        recipe_name=recipe.recipe_name,
-        ingredients_required=recipe.ingredients_required,
-        missing_ingredients=recipe.missing_ingredients,
-        instructions=recipe.instructions,
-        difficulty_level=recipe.difficulty_level,
-        cooking_time=recipe.cooking_time,
-        servings=recipe.servings,
-        notes=recipe.notes,
-        user_id=current_user.id
-    )
+    recipe_data = {
+        "id": str(uuid.uuid4()),
+        "recipe_name": recipe.recipe_name,
+        "ingredients_required": recipe.ingredients_required,
+        "missing_ingredients": recipe.missing_ingredients,
+        "instructions": recipe.instructions,
+        "difficulty_level": recipe.difficulty_level,
+        "cooking_time": recipe.cooking_time,
+        "servings": recipe.servings,
+        "notes": recipe.notes,
+        "user_id": current_user["id"]
+    }
     
-    db.add(db_recipe)
-    db.commit()
-    db.refresh(db_recipe)
+    response = supabase.table("saved_recipes").insert(recipe_data).execute()
     
-    return db_recipe
+    if response.data and len(response.data) > 0:
+        return response.data[0]
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save recipe"
+        )
 
 
 @router.get("", response_model=List[SavedRecipeResponse])
 async def get_saved_recipes(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService.get_current_user)
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Any:
     """
     Get all saved recipes for the current user.
     """
-    recipes = db.query(SavedRecipe).filter(
-        SavedRecipe.user_id == current_user.id
-    ).offset(skip).limit(limit).all()
+    supabase = get_supabase_client()
     
-    return recipes
+    response = supabase.table("saved_recipes") \
+        .select("*") \
+        .eq("user_id", current_user["id"]) \
+        .range(skip, skip + limit - 1) \
+        .execute()
+    
+    return response.data
 
 
 @router.get("/{recipe_id}", response_model=SavedRecipeResponse)
 async def get_saved_recipe(
-    recipe_id: int = Path(..., gt=0),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService.get_current_user)
+    recipe_id: str = Path(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Any:
     """
     Get a specific saved recipe by ID.
     """
-    recipe = db.query(SavedRecipe).filter(
-        SavedRecipe.id == recipe_id,
-        SavedRecipe.user_id == current_user.id
-    ).first()
+    supabase = get_supabase_client()
     
-    if not recipe:
+    response = supabase.table("saved_recipes") \
+        .select("*") \
+        .eq("id", recipe_id) \
+        .eq("user_id", current_user["id"]) \
+        .execute()
+    
+    if not response.data or len(response.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipe not found"
         )
     
-    return recipe
+    return response.data[0]
 
 
 @router.put("/{recipe_id}", response_model=SavedRecipeResponse)
 async def update_saved_recipe(
     recipe_update: SavedRecipeUpdate,
-    recipe_id: int = Path(..., gt=0),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService.get_current_user)
+    recipe_id: str = Path(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> Any:
     """
     Update a saved recipe.
     """
-    recipe = db.query(SavedRecipe).filter(
-        SavedRecipe.id == recipe_id,
-        SavedRecipe.user_id == current_user.id
-    ).first()
+    supabase = get_supabase_client()
     
-    if not recipe:
+    # First check if the recipe exists and belongs to the user
+    check_response = supabase.table("saved_recipes") \
+        .select("id") \
+        .eq("id", recipe_id) \
+        .eq("user_id", current_user["id"]) \
+        .execute()
+    
+    if not check_response.data or len(check_response.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipe not found"
@@ -101,34 +114,48 @@ async def update_saved_recipe(
     
     # Update recipe fields
     update_data = recipe_update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(recipe, key, value)
     
-    db.commit()
-    db.refresh(recipe)
+    response = supabase.table("saved_recipes") \
+        .update(update_data) \
+        .eq("id", recipe_id) \
+        .eq("user_id", current_user["id"]) \
+        .execute()
     
-    return recipe
+    if not response.data or len(response.data) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update recipe"
+        )
+    
+    return response.data[0]
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_saved_recipe(
-    recipe_id: int = Path(..., gt=0),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService.get_current_user)
+    recipe_id: str = Path(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> None:
     """
     Delete a saved recipe.
     """
-    recipe = db.query(SavedRecipe).filter(
-        SavedRecipe.id == recipe_id,
-        SavedRecipe.user_id == current_user.id
-    ).first()
+    supabase = get_supabase_client()
     
-    if not recipe:
+    # First check if the recipe exists and belongs to the user
+    check_response = supabase.table("saved_recipes") \
+        .select("id") \
+        .eq("id", recipe_id) \
+        .eq("user_id", current_user["id"]) \
+        .execute()
+    
+    if not check_response.data or len(check_response.data) == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Recipe not found"
         )
     
-    db.delete(recipe)
-    db.commit()
+    # Delete the recipe
+    supabase.table("saved_recipes") \
+        .delete() \
+        .eq("id", recipe_id) \
+        .eq("user_id", current_user["id"]) \
+        .execute()

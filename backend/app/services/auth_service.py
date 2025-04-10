@@ -2,15 +2,14 @@ import os
 import jwt
 import logging
 import httpx
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
-from ..db.base import get_db
-from ..db.models import User
+from ..db.supabase_client import get_supabase_client
 from ..schemas.user import UserCreate, UserInDB
 
 # Load environment variables
@@ -20,7 +19,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/google", auto_error=True)
 
 # Google OAuth constants
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -167,29 +166,47 @@ class AuthService:
             )
     
     @staticmethod
-    def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    async def get_user_by_email(email: str):
         """Get a user by email."""
-        return db.query(User).filter(User.email == email).first()
+        supabase = get_supabase_client()
+        response = supabase.table("users").select("*").eq("email", email).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
     
     @staticmethod
-    def get_user_by_google_id(db: Session, google_id: str) -> Optional[User]:
+    async def get_user_by_google_id(google_id: str):
         """Get a user by Google ID."""
-        return db.query(User).filter(User.google_id == google_id).first()
+        supabase = get_supabase_client()
+        response = supabase.table("users").select("*").eq("google_id", google_id).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
     
     @staticmethod
-    def create_user(db: Session, user_data: UserCreate) -> User:
+    async def create_user(user_data: Dict[str, Any]):
         """Create a new user."""
-        db_user = User(
-            email=user_data.email,
-            name=user_data.name,
-            picture=user_data.picture,
-            google_id=user_data.google_id,
-            is_active=True
-        )
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+        supabase = get_supabase_client()
+        
+        # Generate a UUID for the user
+        user_id = str(uuid.uuid4())
+        
+        # Prepare user data
+        db_user = {
+            "id": user_id,
+            "email": user_data["email"],
+            "name": user_data["name"],
+            "picture": user_data.get("picture"),
+            "google_id": user_data["google_id"],
+            "is_active": True
+        }
+        
+        # Insert user into Supabase
+        response = supabase.table("users").insert(db_user).execute()
+        
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
     
     @staticmethod
     def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -246,18 +263,16 @@ class AuthService:
     
     @staticmethod
     async def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db)
-    ) -> User:
+        token: str = Depends(oauth2_scheme)
+    ) -> Dict[str, Any]:
         """
         Get the current authenticated user from the JWT token.
         
         Args:
             token: JWT token
-            db: Database session
             
         Returns:
-            User object
+            User object as dictionary
         """
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -292,12 +307,12 @@ class AuthService:
             logger.info(f"Looking up user with email: {email}")
             
             # Get the user from the database
-            user = AuthService.get_user_by_email(db, email)
+            user = await AuthService.get_user_by_email(email)
             if user is None:
                 logger.error(f"User not found for email: {email}")
                 raise credentials_exception
             
-            logger.info(f"Successfully authenticated user: {user.id}")
+            logger.info(f"Successfully authenticated user: {user['id']}")
             return user
             
         except Exception as e:
@@ -305,3 +320,26 @@ class AuthService:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise credentials_exception
+
+
+# Standalone function to get the current user
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    """
+    Get the current authenticated user from the JWT token.
+    
+    Args:
+        token: JWT token
+        
+    Returns:
+        User object as dictionary
+    """
+    logger.info(f"Standalone get_current_user called with token: {token[:10]}...")
+    try:
+        user = await AuthService.get_current_user(token)
+        logger.info(f"Successfully authenticated user in standalone function: {user['id']}")
+        return user
+    except Exception as e:
+        logger.error(f"Error in standalone get_current_user: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise

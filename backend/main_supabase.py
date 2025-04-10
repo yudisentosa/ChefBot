@@ -1,4 +1,8 @@
-from fastapi import FastAPI, Request
+"""
+Chef Bot main application with Supabase integration.
+This version uses Supabase instead of SQLite for database operations.
+"""
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -42,6 +46,7 @@ app.add_middleware(
 )
 
 # Include API routers
+# Note: You'll need to update your endpoint implementations to use Supabase
 app.include_router(
     ingredients.router,
     prefix=f"{settings.API_V1_STR}/ingredients",
@@ -101,4 +106,4 @@ def health_check():
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main_supabase:app", host="0.0.0.0", port=8000, reload=True)

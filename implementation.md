@@ -15,8 +15,10 @@
 ## 3. Features & Requirements
 
 ### 3.1 User Management
-- Optional authentication (Login/Signup)
+- Authentication via Google OAuth
+- User profile management
 - Each user has a personal ingredient list
+- Secure session management
 
 ### 3.2 Ingredient Management
 - UI to add, edit, and delete ingredients
@@ -31,7 +33,8 @@
   - Dish name
   - Required ingredients
   - Missing ingredients (if any)
-  - Optional: Cooking instructions
+  - Cooking instructions
+- Users can save favorite recipes to their profile
 
 ### 3.4 AI Integration
 - Use DeepSeek for NLP-based dish suggestions
@@ -41,6 +44,8 @@
 ### 3.5 API Design (FastAPI)
 - `/ingredients` (GET, POST, PUT, DELETE)
 - `/chat` (POST)
+- `/auth` (Google OAuth endpoints)
+- `/recipes` (GET, POST, DELETE for saved recipes)
 - Modular structure using routers and Pydantic models
 
 ### 3.6 Frontend (React)
@@ -48,7 +53,9 @@
 - Core components/pages:
   - Ingredient manager
   - Chatbot interaction
-  - Auth (if enabled)
+  - Google authentication
+  - User profile
+  - Saved recipes collection
 - Ensure responsiveness for mobile/tablet
 - Display clear status for available, used, and missing ingredients
 
@@ -81,10 +88,15 @@
 - [ ] Set up FastAPI application structure
 - [ ] Configure database connection (SQLite for development, PostgreSQL for production)
 - [ ] Create database models and migrations
+  - [ ] User model with Google authentication fields
+  - [ ] Saved recipes model
+  - [ ] Ingredients model with user relationship
 - [ ] Implement Pydantic schemas for data validation
 - [ ] Develop API endpoints:
   - [ ] GET, POST, PUT, DELETE for ingredients
   - [ ] POST for chat/recipe suggestions
+  - [ ] Google OAuth authentication endpoints
+  - [ ] GET, POST, DELETE for saved recipes
 - [ ] Integrate DeepSeek API:
   - [ ] Set up API key configuration
   - [ ] Create service for recipe suggestions
@@ -98,23 +110,30 @@
   - [ ] Unit selection dropdowns
   - [ ] Delete buttons for ingredients
   - [ ] Add ingredient form
+  - [ ] Google login button
+  - [ ] User profile display
+  - [ ] Saved recipes list with actions
 - [ ] Implement state management (Context API or Redux)
 - [ ] Create API service for backend communication
 - [ ] Develop chat interface for recipe suggestions
+- [ ] Implement recipe saving functionality
 - [ ] Add responsive design for mobile/tablet
 - [ ] Implement form validation and error handling
 
 ### Phase 4: Integration and Testing (Days 15-18)
 - [ ] Connect frontend to backend API
-- [ ] Implement authentication (if required)
+- [ ] Implement Google OAuth authentication flow
+- [ ] Integrate recipe saving functionality
 - [ ] Write unit tests for backend:
   - [ ] API endpoints
   - [ ] Service functions
   - [ ] Data validation
+  - [ ] Authentication flows
 - [ ] Write unit tests for frontend:
   - [ ] Component rendering
   - [ ] State management
   - [ ] API integration
+  - [ ] Authentication handling
 - [ ] Perform end-to-end testing
 - [ ] Fix bugs and improve error handling
 
@@ -144,11 +163,15 @@
 - Follow React best practices for component structure
 - Ensure code is well-documented and follows consistent style
 - Implement proper security measures for API endpoints
+- Secure Google OAuth implementation with proper token handling
+- Implement user session management with secure cookies
 - Optional: Dockerize the application for easy deployment
 
 ## 6. Success Criteria
+- Users can authenticate via Google OAuth
 - Users can manage their ingredient inventory (add, update, delete)
 - Application successfully suggests recipes based on available ingredients
+- Users can save and manage their favorite recipes
 - Interface is responsive and user-friendly
 - System handles errors gracefully
 - API responses are fast and efficient

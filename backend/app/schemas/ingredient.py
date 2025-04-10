@@ -20,10 +20,10 @@ class IngredientUpdate(BaseModel):
 
 # Schema for ingredient in response
 class Ingredient(IngredientBase):
-    id: int
+    id: str  # Changed from int to str to support UUID format
     created_at: datetime
     updated_at: datetime
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None  # Changed from int to str to support UUID format
 
     class Config:
         from_attributes = True  # For SQLAlchemy model compatibility

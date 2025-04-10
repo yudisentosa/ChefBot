@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 
 class RecipeBase(BaseModel):
@@ -34,8 +34,8 @@ class SavedRecipeUpdate(BaseModel):
 
 
 class SavedRecipeInDB(SavedRecipeBase):
-    id: int
-    user_id: int
+    id: str
+    user_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -44,9 +44,9 @@ class SavedRecipeInDB(SavedRecipeBase):
 
 
 class SavedRecipeResponse(SavedRecipeBase):
-    id: int
-    created_at: datetime
-    updated_at: datetime
+    id: str
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
 
     class Config:
         from_attributes = True

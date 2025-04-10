@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./chef_bot.db
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SECRET_KEY=${SECRET_KEY}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=10080
+    volumes:
+      - ./backend:/app
+      - chef_bot_data:/app/instance
+
+volumes:
+  chef_bot_data:

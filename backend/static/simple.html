@@ -536,6 +536,131 @@
       }, 3000);
     }
 
+    // Local storage functions for ingredients - COMPLETELY REWRITTEN
+    const LOCAL_STORAGE_KEY = 'chef_bot_ingredients';
+    
+    function getLocalIngredients() {
+      try {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        console.log('Getting local ingredients from storage:', stored);
+        
+        if (!stored) {
+          console.log('No ingredients found in local storage');
+          return [];
+        }
+        
+        const ingredients = JSON.parse(stored);
+        console.log('Parsed local ingredients:', ingredients);
+        return Array.isArray(ingredients) ? ingredients : [];
+      } catch (error) {
+        console.error('Error getting local ingredients:', error);
+        return [];
+      }
+    }
+
+    function saveLocalIngredients(ingredients) {
+      try {
+        console.log('Saving ingredients to local storage:', ingredients);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(ingredients));
+        console.log('Ingredients saved to local storage');
+      } catch (error) {
+        console.error('Error saving local ingredients:', error);
+        showError('Failed to save ingredients locally');
+      }
+    }
+
+    function addLocalIngredient(ingredient) {
+      try {
+        console.log('Adding ingredient to local storage:', ingredient);
+        const ingredients = getLocalIngredients();
+        ingredients.push(ingredient);
+        saveLocalIngredients(ingredients);
+        console.log('Local ingredients after adding:', ingredients);
+        return ingredient;
+      } catch (error) {
+        console.error('Error adding local ingredient:', error);
+        showError('Failed to add ingredient locally');
+        return ingredient;
+      }
+    }
+    
+    function deleteLocalIngredient(id) {
+      try {
+        console.log('Deleting ingredient from local storage:', id);
+        const ingredients = getLocalIngredients();
+        const filteredIngredients = ingredients.filter(ing => ing.id !== id);
+        saveLocalIngredients(filteredIngredients);
+        console.log('Local ingredients after deletion:', filteredIngredients);
+      } catch (error) {
+        console.error('Error deleting local ingredient:', error);
+        showError('Failed to delete ingredient locally');
+      }
+    }
+
+    function updateLocalIngredient(id, updates) {
+      console.log('Updating local ingredient:', id, updates);
+      try {
+        const ingredients = getLocalIngredients();
+        const index = ingredients.findIndex(i => i.id === id);
+        if (index !== -1) {
+          // Create updated ingredient with current timestamp
+          ingredients[index] = { 
+            ...ingredients[index], 
+            ...updates,
+            updated_at: new Date().toISOString()
+          };
+          saveLocalIngredients(ingredients);
+          console.log('Local ingredient updated:', ingredients[index]);
+          return ingredients[index];
+        } else {
+          console.warn('Ingredient not found in local storage:', id);
+          return null;
+        }
+      } catch (error) {
+        console.error('Error updating local ingredient:', error);
+        return null;
+      }
+    }
+
+    function deleteLocalIngredient(id) {
+      const ingredients = getLocalIngredients();
+      const newIngredients = ingredients.filter(i => i.id !== id);
+      saveLocalIngredients(newIngredients);
+    }
+
+    // Sync local ingredients with server when user logs in
+    function syncLocalIngredientsWithServer() {
+      const localIngredients = getLocalIngredients();
+      if (localIngredients.length === 0) return Promise.resolve([]);
+      
+      return fetch('/api/v1/ingredients/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          ingredients: localIngredients.map(ing => ({
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            temp_id: ing.id
+          }))
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to sync ingredients');
+        }
+        return response.json();
+      })
+      .then(syncedIngredients => {
+        // Clear local ingredients after successful sync
+        localStorage.removeItem('localIngredients');
+        return syncedIngredients;
+      });
+    }
+
     // Load ingredients
     function loadIngredients() {
       ingredientsList.innerHTML = `
@@ -554,7 +679,17 @@
           return response.json();
         })
         .then(ingredients => {
+          // If server returns empty array and user is not authenticated,
+          // load from local storage instead
           if (ingredients.length === 0) {
+            if (!currentUser) {
+              const localIngredients = getLocalIngredients();
+              if (localIngredients.length > 0) {
+                renderIngredients(localIngredients);
+                return;
+              }
+            }
+            
             ingredientsList.innerHTML = `
               <div class="empty-state">
                 <i class="fas fa-shopping-basket text-4xl mb-4"></i>
@@ -564,32 +699,8 @@
             return;
           }
 
-          // Render ingredients
-          let html = '';
-          ingredients.forEach(ingredient => {
-            html += `
-              <div class="ingredient-item" data-id="${ingredient.id}">
-                <span class="ingredient-name">${ingredient.name}</span>
-                <input 
-                  type="number" 
-                  class="quantity-input" 
-                  value="${ingredient.quantity}" 
-                  min="0.1" 
-                  step="0.1" 
-                  style="width: 70px; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;"
-                >
-                <select class="unit-select">
-                  ${['pieces', 'grams', 'kg', 'ml', 'liters', 'cups', 'tbsp', 'tsp']
-                    .map(unit => `<option value="${unit}" ${unit === ingredient.unit ? 'selected' : ''}>${unit}</option>`)
-                    .join('')}
-                </select>
-                <button class="delete-btn">
-                  <i class="fas fa-times"></i>
-                </button>
-              </div>
-            `;
-          });
-          ingredientsList.innerHTML = html;
+          // Render the ingredients
+          renderIngredients(ingredients);
 
           // Add event listeners to the newly created elements
           document.querySelectorAll('.ingredient-item').forEach(item => {
@@ -629,10 +740,21 @@
       const item = document.querySelector(`.ingredient-item[data-id="${id}"]`);
       const quantityInput = item.querySelector('.quantity-input');
       
+      // Check if this is a local ingredient (ID starts with temp_)
+      if (id.startsWith('temp_')) {
+        // Update in local storage
+        updateLocalIngredient(id, {
+          quantity: parseFloat(quantityInput.value),
+          unit: unit
+        });
+        return;
+      }
+      
       fetch(`/api/v1/ingredients/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
         },
         body: JSON.stringify({
           quantity: parseFloat(quantityInput.value),
@@ -646,8 +768,19 @@
 
     // Delete ingredient
     function deleteIngredient(id) {
+      // Check if this is a local ingredient (ID starts with temp_)
+      if (id.startsWith('temp_')) {
+        // Delete from local storage
+        deleteLocalIngredient(id);
+        loadIngredients();
+        return;
+      }
+      
       fetch(`/api/v1/ingredients/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        }
       })
       .then(response => {
         if (!response.ok) {
@@ -660,8 +793,99 @@
       });
     }
 
-    // Add new ingredient
+    // Render ingredients helper function
+    function renderIngredients(ingredients) {
+      console.log('Rendering ingredients:', ingredients);
+      
+      // Handle empty or null ingredients array
+      if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
+        console.log('No ingredients to render');
+        ingredientsList.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-shopping-basket text-gray-300 text-5xl mb-4"></i>
+            <p class="text-gray-500 mb-2">No ingredients yet</p>
+            <p class="text-gray-400 text-sm">Add ingredients to get started</p>
+          </div>
+        `;
+        return;
+      }
+      
+      // Build HTML for ingredients list
+      let html = '';
+      ingredients.forEach(ingredient => {
+        // Skip invalid ingredients
+        if (!ingredient || !ingredient.name) {
+          console.warn('Skipping invalid ingredient:', ingredient);
+          return;
+        }
+        
+        console.log('Rendering ingredient:', ingredient);
+        html += `
+          <div class="ingredient-item" data-id="${ingredient.id || 'unknown'}">
+            <span class="ingredient-name">${ingredient.name}</span>
+            <input 
+              type="number" 
+              class="quantity-input" 
+              value="${ingredient.quantity || 1}" 
+              min="0.1" 
+              step="0.1" 
+              style="width: 70px; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;"
+            >
+            <select class="unit-select">
+              ${['pieces', 'grams', 'kg', 'ml', 'liters', 'cups', 'tbsp', 'tsp']
+                .map(unit => `<option value="${unit}" ${unit === ingredient.unit ? 'selected' : ''}>${unit}</option>`)
+                .join('')}
+            </select>
+            <button class="delete-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        `;
+      });
+      
+      // Update the DOM
+      ingredientsList.innerHTML = html;
+      console.log('Ingredients HTML rendered, count:', ingredients.length);
+
+      // Add event listeners to the newly created elements
+      document.querySelectorAll('.ingredient-item').forEach(item => {
+        const id = item.dataset.id;
+        const unitSelect = item.querySelector('.unit-select');
+        const deleteBtn = item.querySelector('.delete-btn');
+        const quantityInput = item.querySelector('.quantity-input');
+        
+        // For local ingredients (temp_*), use local storage functions
+        if (id && id.toString().startsWith('temp_')) {
+          quantityInput.addEventListener('change', (e) => {
+            const newQuantity = parseFloat(e.target.value);
+            const newUnit = unitSelect.value;
+            updateLocalIngredient(id, { quantity: newQuantity, unit: newUnit });
+          });
+          
+          unitSelect.addEventListener('change', (e) => {
+            const newUnit = e.target.value;
+            const currentQuantity = parseFloat(quantityInput.value);
+            updateLocalIngredient(id, { quantity: currentQuantity, unit: newUnit });
+          });
+          
+          deleteBtn.addEventListener('click', () => {
+            deleteLocalIngredient(id);
+            displayLocalIngredients();
+          });
+        } 
+        // For server-side ingredients, use API functions
+        else {
+          quantityInput.addEventListener('change', (e) => updateIngredientQuantity(id, parseFloat(e.target.value)));
+          unitSelect.addEventListener('change', (e) => updateUnit(id, e.target.value));
+          deleteBtn.addEventListener('click', () => deleteIngredient(id));
+        }
+      });
+      console.log('Event listeners attached to ingredient items');
+    }
+
+    // Add new ingredient - COMPLETELY REWRITTEN WITH DEBUG
     function addIngredient() {
+      console.log('Adding ingredient...');
       const name = newIngredientName.value.trim();
       const quantity = parseFloat(newIngredientQuantity.value);
       const unit = newIngredientUnit.value;
@@ -676,11 +900,71 @@
         return;
       }
       
+      console.log(`Adding ingredient: ${name}, ${quantity} ${unit}`);
+      
+      // For non-authenticated users, bypass the API and use local storage directly
+      if (!currentUser) {
+        console.log('User not authenticated, adding directly to local storage');
+        const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const newIngredient = {
+          id: tempId,
+          name: name,
+          quantity: quantity,
+          unit: unit,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        console.log('Created new ingredient object:', newIngredient);
+        
+        try {
+          // Get current ingredients first
+          const currentIngredients = getLocalIngredients();
+          console.log('Current ingredients before adding:', currentIngredients);
+          
+          // Add directly to localStorage to bypass any potential issues with addLocalIngredient
+          const updatedIngredients = [...currentIngredients, newIngredient];
+          console.log('Updated ingredients array:', updatedIngredients);
+          
+          // Save directly to localStorage
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedIngredients));
+          console.log('Saved to localStorage directly');
+          
+          // Verify it was added
+          const verifyIngredients = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
+          console.log('Verified ingredients after adding:', verifyIngredients);
+          
+          // Clear form fields
+          newIngredientName.value = '';
+          newIngredientQuantity.value = '1';
+          newIngredientUnit.value = 'pieces';
+          
+          // Show success message
+          showSuccess(`Added ${name} to your ingredients`);
+          
+          // Reload ingredients from local storage
+          displayLocalIngredients();
+        } catch (error) {
+          console.error('Error saving to local storage:', error);
+          showError(`Failed to add ingredient: ${error.message}`);
+        }
+        return;
+      }
+      
+      // For authenticated users, use the API
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('Adding Authorization header for authenticated user');
+      }
+      
+      console.log('Sending POST request to /api/v1/ingredients');
       fetch('/api/v1/ingredients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: headers,
         body: JSON.stringify({
           name,
           quantity,
@@ -688,17 +972,36 @@
         })
       })
       .then(response => {
+        console.log('Response status:', response.status);
         if (!response.ok) {
-          return response.json().then(data => {
-            throw new Error(data.detail || 'Failed to add ingredient');
+          return response.text().then(text => {
+            console.error('Error response:', text);
+            try {
+              const data = JSON.parse(text);
+              throw new Error(data.detail || 'Failed to add ingredient');
+            } catch (e) {
+              throw new Error('Failed to add ingredient: ' + text);
+            }
           });
         }
+        return response.json();
+      })
+      .then(ingredient => {
+        console.log('Ingredient added via API:', ingredient);
+        
+        // Clear form fields
         newIngredientName.value = '';
         newIngredientQuantity.value = '1';
         newIngredientUnit.value = 'pieces';
-        loadIngredients();
+        
+        // Show success message
+        showSuccess(`Added ${name} to your ingredients`);
+        
+        // Reload ingredients from API
+        loadIngredientsFromAPI();
       })
       .catch(error => {
+        console.error('Error adding ingredient:', error);
         showError(error.message);
       });
     }
@@ -927,9 +1230,25 @@
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
+        // Sync local ingredients with server if we have any
+        const localIngredients = getLocalIngredients();
+        if (localIngredients.length > 0) {
+          showInfo('Syncing your ingredients...');
+          try {
+            await syncLocalIngredientsWithServer();
+            showSuccess('Your ingredients have been synced!');
+          } catch (error) {
+            console.error('Error syncing ingredients:', error);
+            showError('Failed to sync ingredients. Please try again later.');
+          }
+        }
+        
         // Update UI for authenticated user
         updateAuthUI(true);
         showSuccess('Successfully signed in!');
+        
+        // Reload ingredients to get the server-stored ones
+        loadIngredients();
         
         // If on saved recipes tab, load them
         if (!savedRecipesContent.classList.contains('hidden')) {
@@ -1352,9 +1671,18 @@
     }
     
     // Event listeners
-    addIngredientBtn.addEventListener('click', addIngredient);
+    addIngredientBtn.addEventListener('click', function(e) {
+      e.preventDefault(); // Prevent form submission
+      console.log('Add ingredient button clicked');
+      addIngredient();
+    });
+    
     getRecipeBtn.addEventListener('click', getRecipe);
     logoutBtn.addEventListener('click', logout);
+    
+    // Debug event listener
+    console.log('Add ingredient button:', addIngredientBtn);
+    console.log('Event listener attached to Add button');
     
     // Enter key for adding ingredients
     newIngredientName.addEventListener('keypress', (e) => {
@@ -1363,65 +1691,82 @@
       }
     });
 
-    // Load ingredients from the server
-    async function loadIngredients() {
+    // Display local ingredients directly (no API call)
+    function displayLocalIngredients() {
+      console.log('Displaying local ingredients...');
+      const localIngredients = getLocalIngredients();
+      console.log('Local ingredients to display:', localIngredients);
+      renderIngredients(localIngredients);
+    }
+    
+    // Load ingredients from API (for authenticated users)
+    async function loadIngredientsFromAPI() {
       try {
-        console.log('Loading ingredients...');
-        const response = await fetch('/api/v1/ingredients/');
+        console.log('Loading ingredients from API...');
+        
+        // Show loading state
+        ingredientsList.innerHTML = `
+          <div class="p-6 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-500">Loading ingredients...</p>
+          </div>
+        `;
+        
+        // Add Authorization header
+        const headers = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        const response = await fetch('/api/v1/ingredients/', {
+          headers: headers
+        });
         
         if (!response.ok) {
-          throw new Error('Failed to load ingredients');
+          throw new Error('Failed to load ingredients from API');
         }
         
         const ingredients = await response.json();
-        console.log('Ingredients loaded:', ingredients);
+        console.log('Ingredients loaded from server:', ingredients);
+        renderIngredients(ingredients);
+      } catch (error) {
+        console.error('Error loading ingredients from API:', error);
+        showError('Failed to load ingredients: ' + error.message);
+        ingredientsList.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-circle text-red-500 text-4xl mb-4"></i>
+            <p class="text-gray-500 mb-2">Failed to load ingredients</p>
+            <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg" onclick="loadIngredients()">
+              Try Again
+            </button>
+          </div>
+        `;
+      }
+    }
+    
+    // Main load ingredients function - decides whether to use API or local storage
+    async function loadIngredients() {
+      console.log('Loading ingredients...');
+      
+      try {
+        // Show loading state
+        ingredientsList.innerHTML = `
+          <div class="p-6 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-500">Loading ingredients...</p>
+          </div>
+        `;
         
-        // Clear loading state
-        ingredientsList.innerHTML = '';
-        
-        if (ingredients.length === 0) {
-          // Show empty state if no ingredients
-          ingredientsList.innerHTML = `
-            <div class="empty-state">
-              <i class="fas fa-shopping-basket text-gray-300 text-5xl mb-4"></i>
-              <p class="text-gray-500 mb-2">No ingredients yet</p>
-              <p class="text-gray-400 text-sm">Add ingredients to get started</p>
-            </div>
-          `;
-        } else {
-          // Display ingredients
-          ingredients.forEach(ingredient => {
-            const ingredientItem = document.createElement('div');
-            ingredientItem.className = 'ingredient-item';
-            ingredientItem.innerHTML = `
-              <span class="ingredient-name">${ingredient.name}</span>
-              <div class="quantity-control">
-                <button class="quantity-btn decrease-btn" data-id="${ingredient.id}">
-                  <i class="fas fa-minus"></i>
-                </button>
-                <span class="quantity-value">${ingredient.quantity}</span>
-                <button class="quantity-btn increase-btn" data-id="${ingredient.id}">
-                  <i class="fas fa-plus"></i>
-                </button>
-              </div>
-              <span class="text-sm text-gray-500">${ingredient.unit}</span>
-              <button class="delete-btn" data-id="${ingredient.id}">
-                <i class="fas fa-trash"></i>
-              </button>
-            `;
-            
-            ingredientsList.appendChild(ingredientItem);
-            
-            // Add event listeners for quantity buttons
-            const decreaseBtn = ingredientItem.querySelector('.decrease-btn');
-            const increaseBtn = ingredientItem.querySelector('.increase-btn');
-            const deleteBtn = ingredientItem.querySelector('.delete-btn');
-            
-            decreaseBtn.addEventListener('click', () => updateIngredientQuantity(ingredient.id, Math.max(0.5, ingredient.quantity - 0.5)));
-            increaseBtn.addEventListener('click', () => updateIngredientQuantity(ingredient.id, ingredient.quantity + 0.5));
-            deleteBtn.addEventListener('click', () => deleteIngredient(ingredient.id));
-          });
+        // If user is not logged in, use local storage
+        if (!currentUser) {
+          console.log('User not authenticated, using local storage');
+          displayLocalIngredients();
+          return;
         }
+        
+        // If user is logged in, use API
+        console.log('User authenticated, loading from API');
+        await loadIngredientsFromAPI();
       } catch (error) {
         console.error('Error loading ingredients:', error);
         ingredientsList.innerHTML = `
@@ -1437,27 +1782,34 @@
     }
     
     // Update ingredient quantity
-    async function updateIngredientQuantity(id, newQuantity) {
-      try {
-        console.log(`Updating ingredient ${id} to quantity ${newQuantity}`);
-        const response = await fetch(`/api/v1/ingredients/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ quantity: newQuantity })
+    function updateIngredientQuantity(id, quantity) {
+      const item = document.querySelector(`.ingredient-item[data-id="${id}"]`);
+      const unitSelect = item.querySelector('.unit-select');
+      
+      // Check if this is a local ingredient (ID starts with temp_)
+      if (id.startsWith('temp_')) {
+        // Update in local storage
+        updateLocalIngredient(id, {
+          quantity: quantity,
+          unit: unitSelect.value
         });
-        
-        if (!response.ok) {
-          throw new Error('Failed to update ingredient');
-        }
-        
-        // Reload ingredients to reflect changes
-        loadIngredients();
-      } catch (error) {
-        console.error('Error updating ingredient:', error);
-        showError(error.message);
+        return;
       }
+      
+      fetch(`/api/v1/ingredients/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
+        body: JSON.stringify({
+          quantity: quantity,
+          unit: unitSelect.value
+        })
+      })
+      .catch(error => {
+        showError(error.message);
+      });
     }
     
     // Delete ingredient
