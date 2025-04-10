@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/api_vercel.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     },
     {
@@ -17,11 +17,11 @@
     },
     {
       "src": "/api/(.*)",
-      "dest": "/backend/api_vercel.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "/backend/api_vercel.py"
+      "dest": "/api/index.py"
     }
   ],
   "env": {

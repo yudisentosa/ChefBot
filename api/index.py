@@ -1,19 +1,57 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 import os
 import sys
+import logging
 
-# Add the parent directory to sys.path to import from backend
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Import the app from your main_supabase.py
-from backend.main_supabase import app as chef_bot_app
+# Add the project root to the Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Create a new FastAPI app for Vercel
-app = chef_bot_app
+# Create FastAPI app
+app = FastAPI()
 
-# This is needed for Vercel serverless functions
+@app.get("/")
+async def read_root():
+    """Root endpoint for Vercel deployment."""
+    try:
+        # Try to read the HTML file
+        html_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                               "backend", "static", "simple.html")
+        
+        if os.path.exists(html_path):
+            with open(html_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content)
+        else:
+            logger.error(f"HTML file not found at {html_path}")
+            return HTMLResponse(content="<html><body><h1>Chef Bot</h1><p>HTML file not found</p></body></html>")
+    except Exception as e:
+        logger.error(f"Error serving HTML: {str(e)}")
+        return HTMLResponse(content=f"<html><body><h1>Error</h1><p>{str(e)}</p></body></html>")
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "environment": os.environ.get("VERCEL_ENV", "development")}
+
+@app.get("/api/ingredients")
+async def get_ingredients():
+    """Get ingredients endpoint."""
+    try:
+        # This is a placeholder - in a real app, you'd connect to Supabase here
+        return JSONResponse(content=[
+            {"id": "1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
+            {"id": "2", "name": "Onion", "quantity": 1, "unit": "pieces"},
+            {"id": "3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
+        ])
+    except Exception as e:
+        logger.error(f"Error getting ingredients: {str(e)}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+# This is required for Vercel serverless functions
 def handler(request, *args, **kwargs):
     return app(request, *args, **kwargs)
