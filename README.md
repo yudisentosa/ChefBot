@@ -1,7 +1,7 @@
 # Chef Bot - Development Documentation
 
 ## Project Overview
-Chef Bot is an AI-powered recipe suggestion web application that helps users discover recipes based on their available ingredients. The application uses a FastAPI backend and React frontend to provide a modern, responsive user experience.
+Chef Bot is an AI-powered recipe suggestion web application that helps users discover recipes based on their available ingredients. The application uses a FastAPI backend with Supabase integration and provides a modern, responsive user experience.
 
 ## Quick Start
 
@@ -9,6 +9,66 @@ Chef Bot is an AI-powered recipe suggestion web application that helps users dis
 ```bash
 # Clone the repository
 git clone <repository-url>
+
+# Navigate to the project directory
+cd chef_bot
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase credentials
+
+# Run the application locally
+python backend/main_supabase.py
+```
+
+## Deploying to Vercel
+
+Follow these steps to deploy Chef Bot to Vercel:
+
+1. **Create a Vercel Account**
+   - Sign up at [vercel.com](https://vercel.com) if you don't already have an account
+
+2. **Install Vercel CLI**
+   ```bash
+   npm install -g vercel
+   ```
+
+3. **Login to Vercel**
+   ```bash
+   vercel login
+   ```
+
+4. **Deploy from Your Local Project**
+   ```bash
+   # Navigate to your project directory
+   cd chef_bot
+   
+   # Deploy to Vercel
+   vercel
+   ```
+
+5. **Configure Environment Variables**
+   - During deployment, Vercel will ask if you want to use existing settings or create new ones
+   - Choose to create new settings and configure your environment variables
+   - Alternatively, you can set them in the Vercel dashboard after deployment
+
+6. **Required Environment Variables**
+   - `SUPABASE_URL`: Your Supabase project URL
+   - `SUPABASE_KEY`: Your Supabase anon key
+   - `SUPABASE_SERVICE_KEY`: Your Supabase service role key
+   - `SECRET_KEY`: Secret key for JWT token generation
+   - `GOOGLE_CLIENT_ID`: Your Google OAuth client ID
+
+7. **Update Google OAuth Settings**
+   - Add your Vercel deployment URL to the authorized JavaScript origins in your Google Cloud Console
+   - Format: `https://your-project-name.vercel.app`
+
+8. **Verify Deployment**
+   - Once deployed, Vercel will provide you with a URL to access your application
+   - Test all functionality to ensure everything is working correctly
 
 # Create and activate virtual environment
 python -m venv venv
