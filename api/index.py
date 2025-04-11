@@ -230,13 +230,16 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Authentication successful for user: {user_id}")
                             session_token = self._generate_session_token(user_id)
                             
-                            # Create user response
+                            # Create user response in the format expected by the frontend
+                            # Frontend expects: { access_token: string, user: { id, email, name, picture } }
                             user_data = {
-                                "id": user_id,
-                                "email": google_response.get('email', ''),
-                                "name": google_response.get('name', ''),
-                                "picture": google_response.get('picture', ''),
-                                "session": session_token
+                                "access_token": session_token,
+                                "user": {
+                                    "id": user_id,
+                                    "email": google_response.get('email', ''),
+                                    "name": google_response.get('name', ''),
+                                    "picture": google_response.get('picture', '')
+                                }
                             }
                             
                             response_content = json.dumps(user_data)
