@@ -67,6 +67,7 @@ HTML_CONTENT = """
 </html>
 """
 
+# Define a simple handler for Vercel serverless functions
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path
@@ -156,6 +157,7 @@ class handler(BaseHTTPRequestHandler):
         path = self.path
         content_type = 'application/json'
         status_code = 200
+        response_content = ""
         
         # Log the request
         log_message(f"POST request: {path}")
@@ -225,6 +227,7 @@ class handler(BaseHTTPRequestHandler):
                 
             # Handle ingredient creation
             elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
+                log_message(f"Processing ingredient creation request to {path}")
                 # Get user ID from Authorization header if available
                 user_id = None
                 auth_header = self.headers.get('Authorization', '')
@@ -273,14 +276,20 @@ class handler(BaseHTTPRequestHandler):
                 "message": "An unexpected error occurred"
             })
         
-        # Send response
+        # Send response with proper headers
         self.send_response(status_code)
         self.send_header('Content-Type', content_type)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
-        self.wfile.write(response_content.encode('utf-8'))
+        
+        # Make sure we're sending a string
+        if isinstance(response_content, str):
+            self.wfile.write(response_content.encode('utf-8'))
+        else:
+            log_message(f"Warning: Response content is not a string: {type(response_content)}", "WARNING")
+            self.wfile.write(json.dumps({"error": "Invalid response format"}).encode('utf-8'))
     
     def do_OPTIONS(self):
         # Handle CORS preflight requests
