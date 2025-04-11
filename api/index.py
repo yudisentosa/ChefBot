@@ -41,6 +41,13 @@ try:
         log_message("Supabase client initialized successfully")
         log_message(f"Connected to Supabase URL: {supabase_url[:20]}...")
         
+        # Get and log the Supabase client version
+        try:
+            import supabase as supabase_module
+            log_message(f"Using Supabase Python client version: {supabase_module.__version__}")
+        except (ImportError, AttributeError):
+            log_message("Could not determine Supabase client version")
+        
         # Verify connection by attempting a simple query
         try:
             # Test query to verify connection
@@ -186,7 +193,14 @@ class handler(BaseHTTPRequestHandler):
                         # Filter by user_id if available
                         if user_id:
                             # Use the correct eq method for filtering in Supabase Python client
-                            query = query.eq('user_id', user_id)
+                            # The .eq() method is the standard way to filter in Supabase
+                            try:
+                                query = query.eq('user_id', user_id)
+                                log_message(f"Applied user_id filter with eq method")
+                            except AttributeError:
+                                # Fallback for older versions that might use a different syntax
+                                log_message(f"eq method failed, trying alternative filter approach")
+                                query = query.filter('user_id', 'eq', user_id)
                         
                         # Execute the query with detailed logging
                         log_message(f"Executing Supabase query for ingredients with user_id filter: {user_id is not None}")
@@ -211,35 +225,8 @@ class handler(BaseHTTPRequestHandler):
                                 "details": "Using sample data"
                             }
                             log_message("No ingredients found in Supabase, using sample data", "WARNING")
-                            ingredients = [
-                                {
-                                    "id": "temp_1",
-                                    "name": "Tomato",
-                                    "quantity": 2,
-                                    "unit": "pieces",
-                                    "user_id": user_id or "demo_user",
-                                    "created_at": datetime.datetime.now().isoformat(),
-                                    "updated_at": datetime.datetime.now().isoformat()
-                                },
-                                {
-                                    "id": "temp_2",
-                                    "name": "Onion",
-                                    "quantity": 1,
-                                    "unit": "pieces",
-                                    "user_id": user_id or "demo_user",
-                                    "created_at": datetime.datetime.now().isoformat(),
-                                    "updated_at": datetime.datetime.now().isoformat()
-                                },
-                                {
-                                    "id": "temp_3",
-                                    "name": "Garlic",
-                                    "quantity": 3,
-                                    "unit": "cloves",
-                                    "user_id": user_id or "demo_user",
-                                    "created_at": datetime.datetime.now().isoformat(),
-                                    "updated_at": datetime.datetime.now().isoformat()
-                                }
-                            ]
+                            # Return empty ingredients list instead of sample data
+                            ingredients = []
                     except Exception as e:
                         error_msg = str(e)
                         supabase_status = {
@@ -517,6 +504,7 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Attempting to insert ingredient into Supabase table 'ingredients': {new_ingredient['name']}")
                             # Use the correct insert syntax for the Supabase Python client
                             log_message(f"Executing Supabase insert with data: {json.dumps(new_ingredient)}")
+                            # Make sure we're using the correct syntax for the Supabase version
                             response = supabase_client.table('ingredients').insert([new_ingredient]).execute()
                             log_message(f"Supabase insert executed successfully")
                             
