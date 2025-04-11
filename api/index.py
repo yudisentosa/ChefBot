@@ -154,13 +154,16 @@ class handler(BaseHTTPRequestHandler):
         self.wfile.write(response_content.encode('utf-8'))
     
     def do_POST(self):
-        path = self.path
+        full_path = self.path
         content_type = 'application/json'
         status_code = 200
         response_content = ""
         
+        # Parse the path and query parameters
+        path = full_path.split('?')[0] if '?' in full_path else full_path
+        
         # Log the request
-        log_message(f"POST request: {path}")
+        log_message(f"POST request: {full_path} (parsed path: {path})")
         
         # Read request body
         content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
