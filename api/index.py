@@ -106,11 +106,47 @@ class handler(BaseHTTPRequestHandler):
             # Ingredients endpoint - sample data since we can't connect to Supabase here
             elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
                 content_type = 'application/json'
+                # Get user ID from Authorization header if available
+                user_id = None
+                auth_header = self.headers.get('Authorization', '')
+                if auth_header.startswith('Bearer '):
+                    token = auth_header[7:]
+                    # In a real app, you would validate the token
+                    # Here we just extract the user ID from the token
+                    if token:
+                        user_id = "google_101639721585138845906"  # Use the authenticated user's ID
+                        log_message(f"GET ingredients for user: {user_id}")
+                
                 # Sample ingredients that would normally come from Supabase
+                # Make sure they have all required fields expected by the frontend
                 ingredients = [
-                    {"id": "temp_1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
-                    {"id": "temp_2", "name": "Onion", "quantity": 1, "unit": "pieces"},
-                    {"id": "temp_3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
+                    {
+                        "id": "temp_1",
+                        "name": "Tomato",
+                        "quantity": 2,
+                        "unit": "pieces",
+                        "user_id": user_id,
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "updated_at": datetime.datetime.now().isoformat()
+                    },
+                    {
+                        "id": "temp_2",
+                        "name": "Onion",
+                        "quantity": 1,
+                        "unit": "pieces",
+                        "user_id": user_id,
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "updated_at": datetime.datetime.now().isoformat()
+                    },
+                    {
+                        "id": "temp_3",
+                        "name": "Garlic",
+                        "quantity": 3,
+                        "unit": "cloves",
+                        "user_id": user_id,
+                        "created_at": datetime.datetime.now().isoformat(),
+                        "updated_at": datetime.datetime.now().isoformat()
+                    }
                 ]
                 response_content = json.dumps(ingredients)
                 
