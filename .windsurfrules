@@ -1,5 +1,7 @@
 You are a senior software developer, wrtie a clean code
 Delete any unnecessary code
+Follow implementation.md, do not make any feature except what is in implementation.md
+QA any features that you generated
 My build system is FastAPI
 Deploy function to vercel
 Using supabase as database

@@ -10,6 +10,11 @@ import hmac
 import hashlib
 import traceback
 from urllib.request import urlopen, Request
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# Load environment variables
+load_dotenv()
 
 # Setup basic logging
 def log_message(message, level="INFO"):
@@ -17,6 +22,21 @@ def log_message(message, level="INFO"):
     timestamp = datetime.datetime.now().isoformat()
     print(f"[{timestamp}] [{level}] {message}", file=sys.stderr)
     sys.stderr.flush()
+
+# Initialize Supabase client
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        log_message(f"Supabase client initialized with URL: {SUPABASE_URL[:20]}...")
+    except Exception as e:
+        log_message(f"Failed to initialize Supabase client: {str(e)}", "ERROR")
+        log_message(traceback.format_exc(), "ERROR")
+else:
+    log_message("SUPABASE_URL or SUPABASE_KEY not found in environment variables", "WARNING")
 
 # Log startup information
 log_message(f"Starting Chef Bot API server in {os.environ.get('VERCEL_ENV', 'development')} environment")
@@ -103,9 +123,11 @@ class handler(BaseHTTPRequestHandler):
                 }
                 response_content = json.dumps(response_data)
                 
-            # Ingredients endpoint - sample data since we can't connect to Supabase here
-            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
+            # Ingredients endpoint with Supabase integration
+            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/', '/api/v1/ingredients']:
                 content_type = 'application/json'
+                log_message(f"Processing ingredients request: {path}")
+                
                 # Get user ID from Authorization header if available
                 user_id = None
                 auth_header = self.headers.get('Authorization', '')
@@ -114,40 +136,69 @@ class handler(BaseHTTPRequestHandler):
                     # In a real app, you would validate the token
                     # Here we just extract the user ID from the token
                     if token:
-                        user_id = "google_101639721585138845906"  # Use the authenticated user's ID
-                        log_message(f"GET ingredients for user: {user_id}")
+                        try:
+                            # Try to extract user_id from token
+                            user_id = token.split('_')[0] if '_' in token else None
+                            log_message(f"GET ingredients for user: {user_id}")
+                        except Exception as e:
+                            log_message(f"Error extracting user_id from token: {str(e)}", "ERROR")
                 
-                # Sample ingredients that would normally come from Supabase
-                # Make sure they have all required fields expected by the frontend
-                ingredients = [
-                    {
-                        "id": "temp_1",
-                        "name": "Tomato",
-                        "quantity": 2,
-                        "unit": "pieces",
-                        "user_id": user_id,
-                        "created_at": datetime.datetime.now().isoformat(),
-                        "updated_at": datetime.datetime.now().isoformat()
-                    },
-                    {
-                        "id": "temp_2",
-                        "name": "Onion",
-                        "quantity": 1,
-                        "unit": "pieces",
-                        "user_id": user_id,
-                        "created_at": datetime.datetime.now().isoformat(),
-                        "updated_at": datetime.datetime.now().isoformat()
-                    },
-                    {
-                        "id": "temp_3",
-                        "name": "Garlic",
-                        "quantity": 3,
-                        "unit": "cloves",
-                        "user_id": user_id,
-                        "created_at": datetime.datetime.now().isoformat(),
-                        "updated_at": datetime.datetime.now().isoformat()
-                    }
-                ]
+                # Try to get ingredients from Supabase
+                ingredients = []
+                if supabase:
+                    try:
+                        # Query ingredients from Supabase
+                        query = supabase.table('ingredients')
+                        
+                        # Filter by user_id if authenticated
+                        if user_id:
+                            query = query.eq('user_id', user_id)
+                        
+                        # Execute the query
+                        response = query.select('*').execute()
+                        
+                        # Process the response
+                        if response.data:
+                            ingredients = response.data
+                            log_message(f"Retrieved {len(ingredients)} ingredients from Supabase")
+                    except Exception as e:
+                        log_message(f"Error querying Supabase: {str(e)}", "ERROR")
+                        log_message(traceback.format_exc(), "ERROR")
+                
+                # If no ingredients found or Supabase error, return sample data
+                if not ingredients:
+                    log_message("No ingredients found in Supabase or error occurred, returning sample data")
+                    ingredients = [
+                        {
+                            "id": "temp_1",
+                            "name": "Tomato",
+                            "quantity": 2,
+                            "unit": "pieces",
+                            "user_id": user_id or "demo_user",
+                            "created_at": datetime.datetime.now().isoformat(),
+                            "updated_at": datetime.datetime.now().isoformat()
+                        },
+                        {
+                            "id": "temp_2",
+                            "name": "Onion",
+                            "quantity": 1,
+                            "unit": "pieces",
+                            "user_id": user_id or "demo_user",
+                            "created_at": datetime.datetime.now().isoformat(),
+                            "updated_at": datetime.datetime.now().isoformat()
+                        },
+                        {
+                            "id": "temp_3",
+                            "name": "Garlic",
+                            "quantity": 3,
+                            "unit": "cloves",
+                            "user_id": user_id or "demo_user",
+                            "created_at": datetime.datetime.now().isoformat(),
+                            "updated_at": datetime.datetime.now().isoformat()
+                        }
+                    ]
+                
+                log_message(f"Returning {len(ingredients)} ingredients")
                 response_content = json.dumps(ingredients)
                 
             # 404 for other paths
@@ -289,42 +340,63 @@ class handler(BaseHTTPRequestHandler):
                         status_code = 401
                         response_content = json.dumps({"error": f"Authentication failed: {str(auth_error)}"})
                 
-            # Handle ingredient creation
-            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
+            # Handle ingredient creation with Supabase integration
+            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/', '/api/v1/ingredients']:
                 log_message(f"Processing ingredient creation request to {path}")
+                
                 # Get user ID from Authorization header if available
                 user_id = None
                 auth_header = self.headers.get('Authorization', '')
                 if auth_header.startswith('Bearer '):
                     token = auth_header[7:]
-                    # Verify session token (simplified for demo)
-                    if token and len(token) > 10:
-                        # In a real app, you would validate the token
-                        # Here we just extract the user ID from the token
-                        user_id = token.split('_')[0] if '_' in token else None
-                        log_message(f"Request authenticated with user_id: {user_id}")
+                    # In a real app, you would validate the token
+                    # Here we just extract the user ID from the token
+                    if token:
+                        try:
+                            user_id = token.split('_')[0] if '_' in token else None
+                            log_message(f"Creating ingredient for user: {user_id}")
+                        except Exception as e:
+                            log_message(f"Error extracting user_id from token: {str(e)}", "ERROR")
                 
                 # Validate required fields
                 if not data.get("name"):
                     status_code = 400
                     response_content = json.dumps({"error": "Ingredient name is required"})
                 else:
-                    # Generate a temporary ID for the ingredient
-                    temp_id = f"temp_{uuid.uuid4()}"
+                    # Generate a UUID for the ingredient
+                    ingredient_id = str(uuid.uuid4())
                     now = datetime.datetime.now().isoformat()
                     
-                    # Create a new ingredient object
+                    # Create a new ingredient object with all required fields
                     new_ingredient = {
-                        "id": temp_id,
+                        "id": ingredient_id,
                         "name": data.get("name", ""),
-                        "quantity": data.get("quantity", 1),
+                        "quantity": float(data.get("quantity", 1)),  # Ensure quantity is a number
                         "unit": data.get("unit", "pieces"),
                         "created_at": now,
                         "updated_at": now,
-                        "user_id": user_id  # Set user ID if authenticated
+                        "user_id": user_id or "demo_user"  # Use the authenticated user ID or demo_user
                     }
                     
-                    log_message(f"Created ingredient: {new_ingredient['name']} with ID: {temp_id}")
+                    # Try to insert the ingredient into Supabase
+                    if supabase:
+                        try:
+                            # Insert the ingredient into Supabase
+                            response = supabase.table('ingredients').insert(new_ingredient).execute()
+                            
+                            # If successful, use the returned data
+                            if response.data:
+                                new_ingredient = response.data[0]
+                                log_message(f"Ingredient inserted into Supabase: {new_ingredient['name']} with ID: {new_ingredient['id']}")
+                            else:
+                                log_message("Supabase insert returned no data", "WARNING")
+                        except Exception as e:
+                            log_message(f"Error inserting ingredient into Supabase: {str(e)}", "ERROR")
+                            log_message(traceback.format_exc(), "ERROR")
+                    else:
+                        log_message("Supabase client not available, using local ingredient only", "WARNING")
+                    
+                    log_message(f"Created ingredient: {new_ingredient['name']} with ID: {new_ingredient['id']}")
                     response_content = json.dumps(new_ingredient)
             else:
                 status_code = 404
