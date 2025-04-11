@@ -24,17 +24,25 @@ def log_message(message, level="INFO"):
     sys.stderr.flush()
 
 # Initialize Supabase client
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
 supabase = None
-if SUPABASE_URL and SUPABASE_KEY:
-    try:
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        log_message(f"Supabase client initialized with URL: {SUPABASE_URL[:20]}...")
-    except Exception as e:
-        log_message(f"Failed to initialize Supabase client: {str(e)}", "ERROR")
-        log_message(traceback.format_exc(), "ERROR")
+try:
+    from supabase import create_client
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_KEY')
+    
+    if supabase_url and supabase_key:
+        supabase = create_client(supabase_url, supabase_key)
+        log_message("Supabase client initialized successfully")
+        # Log the Supabase client version for debugging
+        import supabase
+        log_message(f"Using Supabase Python client version: {supabase.__version__}")
+    else:
+        log_message("Supabase URL or key not found in environment variables", "WARNING")
+except ImportError:
+    log_message("Supabase client not installed", "WARNING")
+except Exception as e:
+    log_message(f"Error initializing Supabase client: {str(e)}", "ERROR")
+    log_message(traceback.format_exc(), "ERROR")
 else:
     log_message("SUPABASE_URL or SUPABASE_KEY not found in environment variables", "WARNING")
 
@@ -165,7 +173,8 @@ class handler(BaseHTTPRequestHandler):
                         
                         # Filter by user_id if available
                         if user_id:
-                            query = query.eq('user_id', user_id)
+                            # Use the correct filter syntax for the Supabase Python client
+                            query = query.filter('user_id', 'eq', user_id)
                         
                         # Execute the query
                         response = query.execute()
@@ -492,7 +501,8 @@ class handler(BaseHTTPRequestHandler):
                         try:
                             # Insert the ingredient into Supabase
                             log_message(f"Attempting to insert ingredient into Supabase table 'ingredients': {new_ingredient['name']}")
-                            response = supabase.table('ingredients').insert(new_ingredient).execute()
+                            # Use the correct insert syntax for the Supabase Python client
+                            response = supabase.table('ingredients').insert([new_ingredient]).execute()
                             
                             # If successful, use the returned data
                             if response and hasattr(response, 'data') and response.data:
