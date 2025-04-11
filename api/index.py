@@ -69,7 +69,7 @@ class handler(BaseHTTPRequestHandler):
             response_content = json.dumps(response_data)
             
         # Ingredients endpoint - sample data since we can't connect to Supabase here
-        elif path == '/api/ingredients':
+        elif path == '/api/ingredients' or path == '/api/v1/ingredients/':
             content_type = 'application/json'
             # Sample ingredients that would normally come from Supabase
             ingredients = [
@@ -87,5 +87,69 @@ class handler(BaseHTTPRequestHandler):
         # Send response
         self.send_response(status_code)
         self.send_header('Content-Type', content_type)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
         self.wfile.write(response_content.encode('utf-8'))
+    
+    def do_POST(self):
+        path = self.path
+        content_type = 'application/json'
+        status_code = 200
+        
+        # Read request body
+        content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
+        post_data = self.rfile.read(content_length)
+        
+        try:
+            # Parse JSON data
+            if content_length > 0:
+                data = json.loads(post_data.decode('utf-8'))
+            else:
+                data = {}
+                
+            # Handle ingredient creation
+            if path == '/api/ingredients' or path == '/api/v1/ingredients' or path == '/api/v1/ingredients/':
+                # Generate a temporary ID for the ingredient
+                import uuid
+                import datetime
+                
+                temp_id = f"temp_{uuid.uuid4()}"
+                now = datetime.datetime.now().isoformat()
+                
+                # Create a new ingredient object
+                new_ingredient = {
+                    "id": temp_id,
+                    "name": data.get("name", ""),
+                    "quantity": data.get("quantity", 1),
+                    "unit": data.get("unit", "pieces"),
+                    "created_at": now,
+                    "updated_at": now,
+                    "user_id": None  # No user ID for unauthenticated users
+                }
+                
+                response_content = json.dumps(new_ingredient)
+            else:
+                status_code = 404
+                response_content = json.dumps({"error": "Endpoint not found"})
+        except Exception as e:
+            status_code = 500
+            response_content = json.dumps({"error": str(e)})
+        
+        # Send response
+        self.send_response(status_code)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+        self.wfile.write(response_content.encode('utf-8'))
+    
+    def do_OPTIONS(self):
+        # Handle CORS preflight requests
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
