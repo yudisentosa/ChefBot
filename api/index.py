@@ -190,12 +190,34 @@ class handler(BaseHTTPRequestHandler):
             
             # Handle Google OAuth authentication
             if path in ['/api/auth/google', '/api/v1/auth/google']:
-                # Get the Google ID token
-                id_token = data.get('credential')
+                # Log all data for debugging
+                log_message(f"Auth data received: {data}")
+                
+                # Try to get the Google ID token from different possible locations
+                id_token = None
+                
+                # Check in the JSON body under different possible keys
+                for key in ['credential', 'token', 'id_token', 'googleToken']:
+                    if key in data and data[key]:
+                        id_token = data[key]
+                        log_message(f"Found token in data[{key}]")
+                        break
+                
+                # If still not found, check query parameters
+                if not id_token and '?' in full_path:
+                    query_string = full_path.split('?', 1)[1]
+                    query_params = dict(parse_qsl(query_string))
+                    log_message(f"Query parameters: {query_params}")
+                    
+                    for key in ['credential', 'token', 'id_token', 'googleToken']:
+                        if key in query_params and query_params[key]:
+                            id_token = query_params[key]
+                            log_message(f"Found token in query_params[{key}]")
+                            break
                 
                 if not id_token:
                     status_code = 400
-                    response_content = json.dumps({"error": "Missing Google ID token"})
+                    response_content = json.dumps({"error": "Missing Google ID token", "received_data": safe_data})
                 else:
                     try:
                         # Verify the token with Google's servers
