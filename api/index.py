@@ -26,19 +26,34 @@ def log_message(message, level="INFO"):
 # Initialize Supabase client
 supabase_client = None
 try:
-    from supabase import create_client
+    from supabase import create_client, Client
+    # Get Supabase credentials from environment variables
     supabase_url = os.environ.get('SUPABASE_URL')
     supabase_key = os.environ.get('SUPABASE_KEY')
+    
+    # Log environment variable status for debugging
+    log_message(f"SUPABASE_URL found: {bool(supabase_url)}")
+    log_message(f"SUPABASE_KEY found: {bool(supabase_key)}")
     
     if supabase_url and supabase_key:
         # Create the Supabase client correctly
         supabase_client = create_client(supabase_url, supabase_key)
         log_message("Supabase client initialized successfully")
         log_message(f"Connected to Supabase URL: {supabase_url[:20]}...")
+        
+        # Verify connection by attempting a simple query
+        try:
+            # Test query to verify connection
+            test_response = supabase_client.table('ingredients').select('*').limit(1).execute()
+            log_message(f"Supabase connection verified with test query")
+        except Exception as test_error:
+            log_message(f"Supabase connection test failed: {str(test_error)}", "WARNING")
+            log_message(f"This may indicate an issue with permissions or table structure")
     else:
         log_message("Supabase URL or key not found in environment variables", "WARNING")
+        log_message("Make sure to set SUPABASE_URL and SUPABASE_KEY in your Vercel environment variables")
 except ImportError:
-    log_message("Supabase client not installed", "WARNING")
+    log_message("Supabase client not installed, make sure 'supabase' is in requirements.txt", "WARNING")
 except Exception as e:
     log_message(f"Error initializing Supabase client: {str(e)}", "ERROR")
     log_message(traceback.format_exc(), "ERROR")
@@ -170,11 +185,13 @@ class handler(BaseHTTPRequestHandler):
                         
                         # Filter by user_id if available
                         if user_id:
-                            # Use the correct filter syntax for the Supabase Python client
-                            query = query.filter('user_id', 'eq', user_id)
+                            # Use the correct eq method for filtering in Supabase Python client
+                            query = query.eq('user_id', user_id)
                         
-                        # Execute the query
+                        # Execute the query with detailed logging
+                        log_message(f"Executing Supabase query for ingredients with user_id filter: {user_id is not None}")
                         response = query.execute()
+                        log_message(f"Supabase query executed successfully")
                         
                         if response.data is not None:
                             ingredients = response.data
@@ -499,7 +516,9 @@ class handler(BaseHTTPRequestHandler):
                             # Insert the ingredient into Supabase
                             log_message(f"Attempting to insert ingredient into Supabase table 'ingredients': {new_ingredient['name']}")
                             # Use the correct insert syntax for the Supabase Python client
+                            log_message(f"Executing Supabase insert with data: {json.dumps(new_ingredient)}")
                             response = supabase_client.table('ingredients').insert([new_ingredient]).execute()
+                            log_message(f"Supabase insert executed successfully")
                             
                             # If successful, use the returned data
                             if response and hasattr(response, 'data') and response.data:
