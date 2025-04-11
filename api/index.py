@@ -1,57 +1,91 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from http.server import BaseHTTPRequestHandler
+from urllib.parse import parse_qs
+import json
 import os
-import sys
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Minimal HTML response for the root path
+HTML_CONTENT = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chef Bot</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .container {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Chef Bot</h1>
+    <div class="container">
+        <h2>Welcome to Chef Bot</h2>
+        <p>This is a simplified version of Chef Bot deployed on Vercel.</p>
+        <p>The application is designed to help you find recipes based on ingredients you have.</p>
+        <h3>API Endpoints:</h3>
+        <ul>
+            <li><a href="/api/health">/api/health</a> - Check if the API is working</li>
+            <li><a href="/api/ingredients">/api/ingredients</a> - Get sample ingredients</li>
+        </ul>
+    </div>
+</body>
+</html>
+"""
 
-# Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Create FastAPI app
-app = FastAPI()
-
-@app.get("/")
-async def read_root():
-    """Root endpoint for Vercel deployment."""
-    try:
-        # Try to read the HTML file
-        html_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                               "backend", "static", "simple.html")
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        path = self.path
         
-        if os.path.exists(html_path):
-            with open(html_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            return HTMLResponse(content=html_content)
-        else:
-            logger.error(f"HTML file not found at {html_path}")
-            return HTMLResponse(content="<html><body><h1>Chef Bot</h1><p>HTML file not found</p></body></html>")
-    except Exception as e:
-        logger.error(f"Error serving HTML: {str(e)}")
-        return HTMLResponse(content=f"<html><body><h1>Error</h1><p>{str(e)}</p></body></html>")
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "environment": os.environ.get("VERCEL_ENV", "development")}
-
-@app.get("/api/ingredients")
-async def get_ingredients():
-    """Get ingredients endpoint."""
-    try:
-        # This is a placeholder - in a real app, you'd connect to Supabase here
-        return JSONResponse(content=[
-            {"id": "1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
-            {"id": "2", "name": "Onion", "quantity": 1, "unit": "pieces"},
-            {"id": "3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
-        ])
-    except Exception as e:
-        logger.error(f"Error getting ingredients: {str(e)}")
-        return JSONResponse(content={"error": str(e)}, status_code=500)
-
-# This is required for Vercel serverless functions
-def handler(request, *args, **kwargs):
-    return app(request, *args, **kwargs)
+        # Set default content type
+        content_type = 'text/html'
+        
+        # Default response
+        status_code = 200
+        response_content = HTML_CONTENT
+        
+        # Health check endpoint
+        if path == '/api/health':
+            content_type = 'application/json'
+            response_data = {
+                "status": "healthy",
+                "version": "1.0.0",
+                "environment": os.environ.get("VERCEL_ENV", "development")
+            }
+            response_content = json.dumps(response_data)
+            
+        # Ingredients endpoint - sample data since we can't connect to Supabase here
+        elif path == '/api/ingredients':
+            content_type = 'application/json'
+            # Sample ingredients that would normally come from Supabase
+            ingredients = [
+                {"id": "temp_1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
+                {"id": "temp_2", "name": "Onion", "quantity": 1, "unit": "pieces"},
+                {"id": "temp_3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
+            ]
+            response_content = json.dumps(ingredients)
+            
+        # 404 for other paths
+        elif path != '/':
+            status_code = 404
+            response_content = "<html><body><h1>404 Not Found</h1><p>The requested path does not exist.</p></body></html>"
+        
+        # Send response
+        self.send_response(status_code)
+        self.send_header('Content-Type', content_type)
+        self.end_headers()
+        self.wfile.write(response_content.encode('utf-8'))
