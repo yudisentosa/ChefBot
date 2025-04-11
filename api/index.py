@@ -24,18 +24,17 @@ def log_message(message, level="INFO"):
     sys.stderr.flush()
 
 # Initialize Supabase client
-supabase = None
+supabase_client = None
 try:
     from supabase import create_client
     supabase_url = os.environ.get('SUPABASE_URL')
     supabase_key = os.environ.get('SUPABASE_KEY')
     
     if supabase_url and supabase_key:
-        supabase = create_client(supabase_url, supabase_key)
+        # Create the Supabase client correctly
+        supabase_client = create_client(supabase_url, supabase_key)
         log_message("Supabase client initialized successfully")
-        # Log the Supabase client version for debugging
-        import supabase
-        log_message(f"Using Supabase Python client version: {supabase.__version__}")
+        log_message(f"Connected to Supabase URL: {supabase_url[:20]}...")
     else:
         log_message("Supabase URL or key not found in environment variables", "WARNING")
 except ImportError:
@@ -43,8 +42,6 @@ except ImportError:
 except Exception as e:
     log_message(f"Error initializing Supabase client: {str(e)}", "ERROR")
     log_message(traceback.format_exc(), "ERROR")
-else:
-    log_message("SUPABASE_URL or SUPABASE_KEY not found in environment variables", "WARNING")
 
 # Log startup information
 log_message(f"Starting Chef Bot API server in {os.environ.get('VERCEL_ENV', 'development')} environment")
@@ -166,10 +163,10 @@ class handler(BaseHTTPRequestHandler):
                 }
                 
                 # Try to get ingredients from Supabase
-                if supabase:
+                if supabase_client:
                     try:
                         # Query ingredients for the user
-                        query = supabase.table('ingredients')
+                        query = supabase_client.table('ingredients')
                         
                         # Filter by user_id if available
                         if user_id:
@@ -497,12 +494,12 @@ class handler(BaseHTTPRequestHandler):
                     }
                     
                     # Try to insert the ingredient into Supabase
-                    if supabase:
+                    if supabase_client:
                         try:
                             # Insert the ingredient into Supabase
                             log_message(f"Attempting to insert ingredient into Supabase table 'ingredients': {new_ingredient['name']}")
                             # Use the correct insert syntax for the Supabase Python client
-                            response = supabase.table('ingredients').insert([new_ingredient]).execute()
+                            response = supabase_client.table('ingredients').insert([new_ingredient]).execute()
                             
                             # If successful, use the returned data
                             if response and hasattr(response, 'data') and response.data:
