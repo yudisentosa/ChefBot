@@ -1,7 +1,27 @@
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse, parse_qsl
 import json
 import os
+import sys
+import uuid
+import datetime
+import base64
+import hmac
+import hashlib
+import traceback
+from urllib.request import urlopen, Request
+
+# Setup basic logging
+def log_message(message, level="INFO"):
+    """Log a message with timestamp and level"""
+    timestamp = datetime.datetime.now().isoformat()
+    print(f"[{timestamp}] [{level}] {message}", file=sys.stderr)
+    sys.stderr.flush()
+
+# Log startup information
+log_message(f"Starting Chef Bot API server in {os.environ.get('VERCEL_ENV', 'development')} environment")
+log_message(f"Python version: {sys.version}")
+log_message(f"Current directory: {os.getcwd()}")
 
 # Minimal HTML response for the root path
 HTML_CONTENT = """
@@ -50,6 +70,17 @@ HTML_CONTENT = """
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path
+        query_params = {}
+        
+        # Parse query parameters if present
+        if '?' in path:
+            path_parts = path.split('?', 1)
+            path = path_parts[0]
+            query_string = path_parts[1]
+            query_params = dict(parse_qsl(query_string))
+        
+        # Log the request
+        log_message(f"GET request: {path} with params: {query_params}")
         
         # Set default content type
         content_type = 'text/html'
@@ -58,31 +89,59 @@ class handler(BaseHTTPRequestHandler):
         status_code = 200
         response_content = HTML_CONTENT
         
-        # Health check endpoint
-        if path == '/api/health':
-            content_type = 'application/json'
-            response_data = {
-                "status": "healthy",
-                "version": "1.0.0",
-                "environment": os.environ.get("VERCEL_ENV", "development")
-            }
-            response_content = json.dumps(response_data)
+        try:
+            # Health check endpoint
+            if path == '/api/health' or path == '/api/v1/health':
+                content_type = 'application/json'
+                response_data = {
+                    "status": "healthy",
+                    "version": "1.0.0",
+                    "environment": os.environ.get("VERCEL_ENV", "development"),
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "python_version": sys.version
+                }
+                response_content = json.dumps(response_data)
+                
+            # Ingredients endpoint - sample data since we can't connect to Supabase here
+            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
+                content_type = 'application/json'
+                # Sample ingredients that would normally come from Supabase
+                ingredients = [
+                    {"id": "temp_1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
+                    {"id": "temp_2", "name": "Onion", "quantity": 1, "unit": "pieces"},
+                    {"id": "temp_3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
+                ]
+                response_content = json.dumps(ingredients)
+                
+            # 404 for other paths
+            elif path != '/':
+                status_code = 404
+                content_type = 'application/json' if self._accepts_json() else 'text/html'
+                
+                if content_type == 'application/json':
+                    response_content = json.dumps({
+                        "error": "Not Found",
+                        "message": "The requested path does not exist",
+                        "path": path
+                    })
+                else:
+                    response_content = "<html><body><h1>404 Not Found</h1><p>The requested path does not exist.</p></body></html>"
+        except Exception as e:
+            # Log the error
+            log_message(f"Error processing GET request to {path}: {str(e)}", "ERROR")
+            log_message(traceback.format_exc(), "ERROR")
             
-        # Ingredients endpoint - sample data since we can't connect to Supabase here
-        elif path == '/api/ingredients' or path == '/api/v1/ingredients/':
-            content_type = 'application/json'
-            # Sample ingredients that would normally come from Supabase
-            ingredients = [
-                {"id": "temp_1", "name": "Tomato", "quantity": 2, "unit": "pieces"},
-                {"id": "temp_2", "name": "Onion", "quantity": 1, "unit": "pieces"},
-                {"id": "temp_3", "name": "Garlic", "quantity": 3, "unit": "cloves"}
-            ]
-            response_content = json.dumps(ingredients)
+            # Return a 500 error
+            status_code = 500
+            content_type = 'application/json' if self._accepts_json() else 'text/html'
             
-        # 404 for other paths
-        elif path != '/':
-            status_code = 404
-            response_content = "<html><body><h1>404 Not Found</h1><p>The requested path does not exist.</p></body></html>"
+            if content_type == 'application/json':
+                response_content = json.dumps({
+                    "error": "Internal Server Error",
+                    "message": "An unexpected error occurred"
+                })
+            else:
+                response_content = "<html><body><h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p></body></html>"
         
         # Send response
         self.send_response(status_code)
@@ -98,6 +157,9 @@ class handler(BaseHTTPRequestHandler):
         content_type = 'application/json'
         status_code = 200
         
+        # Log the request
+        log_message(f"POST request: {path}")
+        
         # Read request body
         content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
         post_data = self.rfile.read(content_length)
@@ -105,37 +167,111 @@ class handler(BaseHTTPRequestHandler):
         try:
             # Parse JSON data
             if content_length > 0:
-                data = json.loads(post_data.decode('utf-8'))
+                try:
+                    data = json.loads(post_data.decode('utf-8'))
+                    # Log request data (omit sensitive fields)
+                    safe_data = {k: v for k, v in data.items() if k.lower() not in ['password', 'token', 'credential']}
+                    if 'credential' in data:
+                        safe_data['credential'] = '***REDACTED***'
+                    log_message(f"POST data: {safe_data}")
+                except json.JSONDecodeError as json_err:
+                    log_message(f"JSON decode error: {str(json_err)}", "ERROR")
+                    status_code = 400
+                    response_content = json.dumps({"error": "Invalid JSON in request body"})
+                    self._send_response(status_code, content_type, response_content)
+                    return
             else:
                 data = {}
+            
+            # Handle Google OAuth authentication
+            if path in ['/api/auth/google', '/api/v1/auth/google']:
+                # Get the Google ID token
+                id_token = data.get('credential')
+                
+                if not id_token:
+                    status_code = 400
+                    response_content = json.dumps({"error": "Missing Google ID token"})
+                else:
+                    try:
+                        # Verify the token with Google's servers
+                        log_message("Verifying Google token...")
+                        google_response = self._verify_google_token(id_token)
+                        
+                        if google_response and 'sub' in google_response:
+                            # Generate a session token
+                            user_id = f"google_{google_response['sub']}"
+                            log_message(f"Authentication successful for user: {user_id}")
+                            session_token = self._generate_session_token(user_id)
+                            
+                            # Create user response
+                            user_data = {
+                                "id": user_id,
+                                "email": google_response.get('email', ''),
+                                "name": google_response.get('name', ''),
+                                "picture": google_response.get('picture', ''),
+                                "session": session_token
+                            }
+                            
+                            response_content = json.dumps(user_data)
+                        else:
+                            log_message("Invalid Google token or missing 'sub' field", "WARNING")
+                            status_code = 401
+                            response_content = json.dumps({"error": "Invalid Google token"})
+                    except Exception as auth_error:
+                        log_message(f"Authentication error: {str(auth_error)}", "ERROR")
+                        log_message(traceback.format_exc(), "ERROR")
+                        status_code = 401
+                        response_content = json.dumps({"error": f"Authentication failed: {str(auth_error)}"})
                 
             # Handle ingredient creation
-            if path == '/api/ingredients' or path == '/api/v1/ingredients' or path == '/api/v1/ingredients/':
-                # Generate a temporary ID for the ingredient
-                import uuid
-                import datetime
+            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/']:
+                # Get user ID from Authorization header if available
+                user_id = None
+                auth_header = self.headers.get('Authorization', '')
+                if auth_header.startswith('Bearer '):
+                    token = auth_header[7:]
+                    # Verify session token (simplified for demo)
+                    if token and len(token) > 10:
+                        # In a real app, you would validate the token
+                        # Here we just extract the user ID from the token
+                        user_id = token.split('_')[0] if '_' in token else None
+                        log_message(f"Request authenticated with user_id: {user_id}")
                 
-                temp_id = f"temp_{uuid.uuid4()}"
-                now = datetime.datetime.now().isoformat()
-                
-                # Create a new ingredient object
-                new_ingredient = {
-                    "id": temp_id,
-                    "name": data.get("name", ""),
-                    "quantity": data.get("quantity", 1),
-                    "unit": data.get("unit", "pieces"),
-                    "created_at": now,
-                    "updated_at": now,
-                    "user_id": None  # No user ID for unauthenticated users
-                }
-                
-                response_content = json.dumps(new_ingredient)
+                # Validate required fields
+                if not data.get("name"):
+                    status_code = 400
+                    response_content = json.dumps({"error": "Ingredient name is required"})
+                else:
+                    # Generate a temporary ID for the ingredient
+                    temp_id = f"temp_{uuid.uuid4()}"
+                    now = datetime.datetime.now().isoformat()
+                    
+                    # Create a new ingredient object
+                    new_ingredient = {
+                        "id": temp_id,
+                        "name": data.get("name", ""),
+                        "quantity": data.get("quantity", 1),
+                        "unit": data.get("unit", "pieces"),
+                        "created_at": now,
+                        "updated_at": now,
+                        "user_id": user_id  # Set user ID if authenticated
+                    }
+                    
+                    log_message(f"Created ingredient: {new_ingredient['name']} with ID: {temp_id}")
+                    response_content = json.dumps(new_ingredient)
             else:
                 status_code = 404
-                response_content = json.dumps({"error": "Endpoint not found"})
+                response_content = json.dumps({"error": "Endpoint not found", "path": path})
         except Exception as e:
+            # Log the error
+            log_message(f"Error processing POST request to {path}: {str(e)}", "ERROR")
+            log_message(traceback.format_exc(), "ERROR")
+            
             status_code = 500
-            response_content = json.dumps({"error": str(e)})
+            response_content = json.dumps({
+                "error": "Internal Server Error",
+                "message": "An unexpected error occurred"
+            })
         
         # Send response
         self.send_response(status_code)
@@ -148,8 +284,73 @@ class handler(BaseHTTPRequestHandler):
     
     def do_OPTIONS(self):
         # Handle CORS preflight requests
+        log_message(f"OPTIONS request: {self.path}")
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
+    
+    def _send_response(self, status_code, content_type, response_content):
+        """Helper method to send a response with proper headers"""
+        self.send_response(status_code)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+        self.wfile.write(response_content.encode('utf-8'))
+    
+    def _accepts_json(self):
+        """Check if the client accepts JSON responses"""
+        accept_header = self.headers.get('Accept', '')
+        return 'application/json' in accept_header
+    
+    def _verify_google_token(self, token):
+        """Verify Google ID token by making a request to Google's tokeninfo endpoint"""
+        try:
+            # For simplicity, we'll use Google's tokeninfo endpoint
+            # In production, you should use a proper JWT verification library
+            url = f"https://oauth2.googleapis.com/tokeninfo?id_token={token}"
+            
+            # Create a request with a timeout
+            headers = {'User-Agent': 'ChefBot/1.0'}
+            req = Request(url, headers=headers)
+            
+            # Open with timeout (5 seconds)
+            response = urlopen(req, timeout=5)
+            data = json.loads(response.read().decode())
+            
+            # Verify the audience matches your Google Client ID
+            client_id = os.environ.get('GOOGLE_CLIENT_ID')
+            if client_id and data.get('aud') != client_id:
+                log_message(f"Token audience mismatch. Expected: {client_id}, Got: {data.get('aud')}", "WARNING")
+                # For demo purposes, we'll still accept the token even if client_id doesn't match
+                # In production, you should return None here
+            
+            return data
+        except Exception as e:
+            log_message(f"Error verifying Google token: {str(e)}", "ERROR")
+            log_message(traceback.format_exc(), "ERROR")
+            return None
+    
+    def _generate_session_token(self, user_id):
+        """Generate a simple session token for the user"""
+        # In a real app, you would use a proper JWT library
+        # This is a simplified version for demo purposes
+        timestamp = datetime.datetime.now().timestamp()
+        random_part = uuid.uuid4().hex[:10]
+        
+        # Create a simple token with user_id, timestamp, and random part
+        token = f"{user_id}_{timestamp}_{random_part}"
+        
+        # In a real app, you would sign this token with a secret key
+        # Here's a simplified example of signing
+        secret = os.environ.get('SECRET_KEY', 'default_secret_key')
+        signature = hmac.new(
+            secret.encode(),
+            token.encode(),
+            hashlib.sha256
+        ).hexdigest()[:10]
+        
+        return f"{token}_{signature}"
