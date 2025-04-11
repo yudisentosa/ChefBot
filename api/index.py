@@ -90,18 +90,25 @@ HTML_CONTENT = """
 # Define a simple handler for Vercel serverless functions
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        path = self.path
+        full_path = self.path
         query_params = {}
         
         # Parse query parameters if present
-        if '?' in path:
-            path_parts = path.split('?', 1)
+        if '?' in full_path:
+            path_parts = full_path.split('?', 1)
             path = path_parts[0]
             query_string = path_parts[1]
             query_params = dict(parse_qsl(query_string))
+        else:
+            path = full_path
+        
+        # Normalize path by removing trailing slash
+        if path.endswith('/') and len(path) > 1:
+            path = path[:-1]
         
         # Log the request
-        log_message(f"GET request: {path} with params: {query_params}")
+        log_message(f"GET request: {full_path} (normalized path: {path})")
+        log_message(f"Query parameters: {query_params}")
         
         # Set default content type
         content_type = 'text/html'
@@ -124,7 +131,7 @@ class handler(BaseHTTPRequestHandler):
                 response_content = json.dumps(response_data)
                 
             # Ingredients endpoint with Supabase integration
-            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/', '/api/v1/ingredients']:
+            elif path in ['/api/ingredients', '/api/v1/ingredients']:
                 content_type = 'application/json'
                 log_message(f"Processing ingredients request: {path}")
                 
@@ -143,31 +150,118 @@ class handler(BaseHTTPRequestHandler):
                         except Exception as e:
                             log_message(f"Error extracting user_id from token: {str(e)}", "ERROR")
                 
+                # Initialize Supabase status
+                supabase_status = {
+                    "success": False,
+                    "message": "Not attempted",
+                    "details": None
+                }
+                
                 # Try to get ingredients from Supabase
-                ingredients = []
                 if supabase:
                     try:
-                        # Query ingredients from Supabase
+                        # Query ingredients for the user
                         query = supabase.table('ingredients')
                         
-                        # Filter by user_id if authenticated
+                        # Filter by user_id if available
                         if user_id:
                             query = query.eq('user_id', user_id)
                         
                         # Execute the query
-                        response = query.select('*').execute()
+                        response = query.execute()
                         
-                        # Process the response
-                        if response.data:
+                        if response.data is not None:
                             ingredients = response.data
-                            log_message(f"Retrieved {len(ingredients)} ingredients from Supabase")
+                            supabase_status = {
+                                "success": True,
+                                "message": f"Retrieved {len(ingredients)} ingredients from Supabase",
+                                "details": {
+                                    "count": len(ingredients),
+                                    "user_id": user_id or "anonymous"
+                                }
+                            }
+                            log_message(f"Retrieved {len(ingredients)} ingredients from Supabase for user {user_id or 'anonymous'}")
+                        else:
+                            supabase_status = {
+                                "success": False,
+                                "message": "No ingredients found in Supabase",
+                                "details": "Using sample data"
+                            }
+                            log_message("No ingredients found in Supabase, using sample data", "WARNING")
+                            ingredients = [
+                                {
+                                    "id": "temp_1",
+                                    "name": "Tomato",
+                                    "quantity": 2,
+                                    "unit": "pieces",
+                                    "user_id": user_id or "demo_user",
+                                    "created_at": datetime.datetime.now().isoformat(),
+                                    "updated_at": datetime.datetime.now().isoformat()
+                                },
+                                {
+                                    "id": "temp_2",
+                                    "name": "Onion",
+                                    "quantity": 1,
+                                    "unit": "pieces",
+                                    "user_id": user_id or "demo_user",
+                                    "created_at": datetime.datetime.now().isoformat(),
+                                    "updated_at": datetime.datetime.now().isoformat()
+                                },
+                                {
+                                    "id": "temp_3",
+                                    "name": "Garlic",
+                                    "quantity": 3,
+                                    "unit": "cloves",
+                                    "user_id": user_id or "demo_user",
+                                    "created_at": datetime.datetime.now().isoformat(),
+                                    "updated_at": datetime.datetime.now().isoformat()
+                                }
+                            ]
                     except Exception as e:
-                        log_message(f"Error querying Supabase: {str(e)}", "ERROR")
+                        error_msg = str(e)
+                        supabase_status = {
+                            "success": False,
+                            "message": "Error retrieving from Supabase",
+                            "details": error_msg
+                        }
+                        log_message(f"Error getting ingredients from Supabase: {error_msg}", "ERROR")
                         log_message(traceback.format_exc(), "ERROR")
-                
-                # If no ingredients found or Supabase error, return sample data
-                if not ingredients:
-                    log_message("No ingredients found in Supabase or error occurred, returning sample data")
+                        ingredients = [
+                            {
+                                "id": "temp_1",
+                                "name": "Tomato",
+                                "quantity": 2,
+                                "unit": "pieces",
+                                "user_id": user_id or "demo_user",
+                                "created_at": datetime.datetime.now().isoformat(),
+                                "updated_at": datetime.datetime.now().isoformat()
+                            },
+                            {
+                                "id": "temp_2",
+                                "name": "Onion",
+                                "quantity": 1,
+                                "unit": "pieces",
+                                "user_id": user_id or "demo_user",
+                                "created_at": datetime.datetime.now().isoformat(),
+                                "updated_at": datetime.datetime.now().isoformat()
+                            },
+                            {
+                                "id": "temp_3",
+                                "name": "Garlic",
+                                "quantity": 3,
+                                "unit": "cloves",
+                                "user_id": user_id or "demo_user",
+                                "created_at": datetime.datetime.now().isoformat(),
+                                "updated_at": datetime.datetime.now().isoformat()
+                            }
+                        ]
+                else:
+                    supabase_status = {
+                        "success": False,
+                        "message": "Supabase client not available",
+                        "details": "Using sample data"
+                    }
+                    log_message("Supabase client not available, using sample ingredients", "WARNING")
                     ingredients = [
                         {
                             "id": "temp_1",
@@ -198,8 +292,12 @@ class handler(BaseHTTPRequestHandler):
                         }
                     ]
                 
-                log_message(f"Returning {len(ingredients)} ingredients")
-                response_content = json.dumps(ingredients)
+                # Return ingredients as JSON with Supabase status
+                response_content = json.dumps({
+                    "success": True,
+                    "ingredients": ingredients,
+                    "supabase": supabase_status
+                })
                 
             # 404 for other paths
             elif path != '/':
@@ -249,8 +347,12 @@ class handler(BaseHTTPRequestHandler):
         # Parse the path and query parameters
         path = full_path.split('?')[0] if '?' in full_path else full_path
         
-        # Log the request
-        log_message(f"POST request: {full_path} (parsed path: {path})")
+        # Normalize path by removing trailing slash
+        if path.endswith('/') and len(path) > 1:
+            path = path[:-1]
+        
+        # Log the request with detailed information
+        log_message(f"POST request: {full_path} (normalized path: {path})")
         
         # Read request body
         content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
@@ -341,7 +443,7 @@ class handler(BaseHTTPRequestHandler):
                         response_content = json.dumps({"error": f"Authentication failed: {str(auth_error)}"})
                 
             # Handle ingredient creation with Supabase integration
-            elif path in ['/api/ingredients', '/api/v1/ingredients', '/api/v1/ingredients/', '/api/v1/ingredients']:
+            elif path in ['/api/ingredients', '/api/v1/ingredients']:
                 log_message(f"Processing ingredient creation request to {path}")
                 
                 # Get user ID from Authorization header if available
@@ -378,22 +480,56 @@ class handler(BaseHTTPRequestHandler):
                         "user_id": user_id or "demo_user"  # Use the authenticated user ID or demo_user
                     }
                     
+                    # Initialize Supabase status
+                    supabase_status = {
+                        "success": False,
+                        "message": "Not attempted",
+                        "details": None
+                    }
+                    
                     # Try to insert the ingredient into Supabase
                     if supabase:
                         try:
                             # Insert the ingredient into Supabase
+                            log_message(f"Attempting to insert ingredient into Supabase table 'ingredients': {new_ingredient['name']}")
                             response = supabase.table('ingredients').insert(new_ingredient).execute()
                             
                             # If successful, use the returned data
-                            if response.data:
+                            if response and hasattr(response, 'data') and response.data:
                                 new_ingredient = response.data[0]
-                                log_message(f"Ingredient inserted into Supabase: {new_ingredient['name']} with ID: {new_ingredient['id']}")
+                                supabase_status = {
+                                    "success": True,
+                                    "message": f"Ingredient successfully added to Supabase",
+                                    "details": {
+                                        "id": new_ingredient['id'],
+                                        "name": new_ingredient['name'],
+                                        "timestamp": new_ingredient.get('created_at', str(datetime.now()))
+                                    }
+                                }
+                                log_message(f"Ingredient successfully inserted into Supabase: {new_ingredient['name']} with ID: {new_ingredient['id']}")
                             else:
-                                log_message("Supabase insert returned no data", "WARNING")
+                                supabase_status = {
+                                    "success": False,
+                                    "message": "Supabase insert returned no data",
+                                    "details": str(response) if response else None
+                                }
+                                log_message(f"Supabase insert returned no data or unexpected response: {response}", "WARNING")
                         except Exception as e:
-                            log_message(f"Error inserting ingredient into Supabase: {str(e)}", "ERROR")
+                            error_msg = str(e)
+                            supabase_status = {
+                                "success": False,
+                                "message": "Error inserting into Supabase",
+                                "details": error_msg
+                            }
+                            log_message(f"Error inserting ingredient into Supabase: {error_msg}", "ERROR")
                             log_message(traceback.format_exc(), "ERROR")
+                            # Continue with the local ingredient, don't fail the request
                     else:
+                        supabase_status = {
+                            "success": False,
+                            "message": "Supabase client not available",
+                            "details": "Using local storage only"
+                        }
                         log_message("Supabase client not available, using local ingredient only", "WARNING")
                     
                     log_message(f"Created ingredient: {new_ingredient['name']} with ID: {new_ingredient['id']}")
@@ -438,13 +574,27 @@ class handler(BaseHTTPRequestHandler):
     
     def _send_response(self, status_code, content_type, response_content):
         """Helper method to send a response with proper headers"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', content_type)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-        self.wfile.write(response_content.encode('utf-8'))
+        try:
+            self.send_response(status_code)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            self.end_headers()
+            
+            # Ensure we're sending a properly encoded string
+            if isinstance(response_content, str):
+                self.wfile.write(response_content.encode('utf-8'))
+            elif isinstance(response_content, bytes):
+                self.wfile.write(response_content)
+            else:
+                # If it's not a string or bytes, convert to JSON
+                self.wfile.write(json.dumps(response_content).encode('utf-8'))
+                
+            log_message(f"Response sent successfully with status {status_code}")
+        except Exception as e:
+            log_message(f"Error sending response: {str(e)}", "ERROR")
+            log_message(traceback.format_exc(), "ERROR")
     
     def _accepts_json(self):
         """Check if the client accepts JSON responses"""
