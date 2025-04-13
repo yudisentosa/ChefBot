@@ -22,6 +22,24 @@ def is_valid_uuid(val):
     except (ValueError, AttributeError, TypeError):
         return False
 
+# Function to check if test mode is enabled
+def is_test_mode_enabled(headers, path):
+    """Check if test mode is enabled via headers or query parameters"""
+    # Check for test mode header
+    test_mode = headers.get('X-Test-Mode') == 'true'
+    
+    # Also check query parameters for test mode
+    if '?' in path:
+        query_string = path.split('?', 1)[1]
+        query_params = dict(parse_qsl(query_string))
+        test_mode = test_mode or query_params.get('test_mode') == 'true'
+    
+    # Log if test mode is enabled
+    if test_mode:
+        log_message("Test mode enabled for this request")
+    
+    return test_mode
+
 # Function to get user_id from Google ID
 def get_user_id_from_google_id(google_id):
     """Look up a user's UUID in the Supabase users table based on their Google ID"""
@@ -923,10 +941,46 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Error extracting user info from token: {str(e)}", "ERROR")
                             response_content = json.dumps({"error": f"Invalid authentication token: {str(e)}"})
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
+                    # Check if test mode is enabled
+                    if is_test_mode_enabled(self.headers, self.path):
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
             
             # Handle saved recipes GET endpoint
             elif path in ['/api/saved-recipes', '/api/v1/saved-recipes']:
@@ -985,12 +1039,55 @@ class handler(BaseHTTPRequestHandler):
                             self._send_response(status_code, content_type, response_content)
                             return
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
-                    self._send_response(status_code, content_type, response_content)
-                    return
+                    # Check for test mode header or query parameter
+                    test_mode = self.headers.get('X-Test-Mode') == 'true'
+                    
+                    # Also check query parameters for test mode
+                    parsed_url = urlparse(self.path)
+                    query_params = dict(parse_qsl(parsed_url.query))
+                    test_mode = test_mode or query_params.get('test_mode') == 'true'
+                    
+                    if test_mode:
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
+                        self._send_response(status_code, content_type, response_content)
+                        return
                 
                 # Parse query parameters
                 skip = int(query_params.get('skip', 0))
@@ -1107,12 +1204,55 @@ class handler(BaseHTTPRequestHandler):
                             self._send_response(status_code, content_type, response_content)
                             return
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
-                    self._send_response(status_code, content_type, response_content)
-                    return
+                    # Check for test mode header or query parameter
+                    test_mode = self.headers.get('X-Test-Mode') == 'true'
+                    
+                    # Also check query parameters for test mode
+                    parsed_url = urlparse(self.path)
+                    query_params = dict(parse_qsl(parsed_url.query))
+                    test_mode = test_mode or query_params.get('test_mode') == 'true'
+                    
+                    if test_mode:
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
+                        self._send_response(status_code, content_type, response_content)
+                        return
                 
                 # Try to get the saved recipe from Supabase
                 if supabase_client and user_id and is_valid_uuid(user_id):
@@ -1342,10 +1482,46 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Error extracting user info from token: {str(e)}", "ERROR")
                             response_content = json.dumps({"error": f"Invalid authentication token: {str(e)}"})
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
+                    # Check if test mode is enabled
+                    if is_test_mode_enabled(self.headers, self.path):
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
             
             # Handle Google authentication
             elif path in ['/api/auth/google', '/api/v1/auth/google']:
@@ -1771,10 +1947,46 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Error extracting user info from token: {str(e)}", "ERROR")
                             response_content = json.dumps({"error": f"Invalid authentication token: {str(e)}"})
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
+                    # Check if test mode is enabled
+                    if is_test_mode_enabled(self.headers, self.path):
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
             
             # Handle saved recipe PUT endpoint
             elif (path.startswith('/api/saved-recipes/') or path.startswith('/api/v1/saved-recipes/')) and self.command == 'PUT':
@@ -1911,10 +2123,46 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Error extracting user info from token: {str(e)}", "ERROR")
                             response_content = json.dumps({"error": f"Invalid authentication token: {str(e)}"})
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
+                    # Check if test mode is enabled
+                    if is_test_mode_enabled(self.headers, self.path):
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
             
             # Handle saved recipe DELETE endpoint
             elif (path.startswith('/api/saved-recipes/') or path.startswith('/api/v1/saved-recipes/')) and self.command == 'DELETE':
@@ -2025,10 +2273,46 @@ class handler(BaseHTTPRequestHandler):
                             log_message(f"Error extracting user info from token: {str(e)}", "ERROR")
                             response_content = json.dumps({"error": f"Invalid authentication token: {str(e)}"})
                 else:
-                    # No auth header
-                    status_code = 401
-                    log_message("No Authorization header provided", "WARNING")
-                    response_content = json.dumps({"error": "Authentication required"})
+                    # Check if test mode is enabled
+                    if is_test_mode_enabled(self.headers, self.path):
+                        # In test mode, use a development user ID
+                        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
+                        log_message(f"Test mode: Using default user ID: {user_id}")
+                        
+                        # Ensure the development user exists in the database
+                        if supabase_client:
+                            try:
+                                # Check if the user exists
+                                user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
+                                
+                                # If user doesn't exist, create a new user record
+                                if not user_check.data or len(user_check.data) == 0:
+                                    log_message(f"Creating development user with ID {user_id} in database")
+                                    
+                                    # Create a new user record with minimal information
+                                    now = datetime.datetime.now().isoformat()
+                                    new_user = {
+                                        "id": user_id,
+                                        "email": "dev@example.com",
+                                        "name": "Development User",
+                                        "is_active": True,
+                                        "created_at": now,
+                                        "updated_at": now
+                                    }
+                                    
+                                    # Insert the new user
+                                    try:
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        log_message(f"Created development user in database")
+                                    except Exception as user_error:
+                                        log_message(f"Error creating development user: {str(user_error)}", "WARNING")
+                            except Exception as check_error:
+                                log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    else:
+                        # No auth header and not in test mode
+                        status_code = 401
+                        log_message("No Authorization header provided", "WARNING")
+                        response_content = json.dumps({"error": "Authentication required"})
             
             # Handle recipe suggestion
             elif path in ['/api/recipes/suggest', '/api/v1/recipes/suggest']:
