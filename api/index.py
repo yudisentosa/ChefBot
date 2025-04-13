@@ -435,6 +435,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Use the token directly as the user_id
                                 user_id = token
@@ -796,6 +819,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             # Otherwise use the token directly as the user_id
                             else:
                                 user_id = token
@@ -905,6 +951,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Try to extract user_id from token
                                 user_id = token.split('_')[0] if '_' in token else token
@@ -1004,6 +1073,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Try to extract user_id from token
                                 user_id = token.split('_')[0] if '_' in token else token
@@ -1568,6 +1660,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 user_id = token.split('_')[0] if '_' in token else token
                             
@@ -1687,6 +1802,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Try to extract user_id from token
                                 user_id = token.split('_')[0] if '_' in token else token
@@ -1804,6 +1942,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Try to extract user_id from token
                                 user_id = token.split('_')[0] if '_' in token else token
@@ -2072,6 +2233,29 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                
+                                # If no user found for this Google ID, create a new user
+                                if not user_id and supabase_client and google_id:
+                                    try:
+                                        # Create a new user with this Google ID
+                                        now = datetime.datetime.now().isoformat()
+                                        new_user_id = str(uuid.uuid4())
+                                        new_user = {
+                                            "id": new_user_id,
+                                            "google_id": google_id,
+                                            "email": f"user_{google_id}@example.com",  # Placeholder
+                                            "name": f"User {google_id[:8]}",  # Placeholder
+                                            "is_active": True,
+                                            "created_at": now,
+                                            "updated_at": now
+                                        }
+                                        
+                                        # Insert the new user
+                                        user_response = supabase_client.table('users').insert(new_user).execute()
+                                        user_id = new_user_id
+                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
+                                    except Exception as create_error:
+                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Use the token directly as the user_id
                                 user_id = token
