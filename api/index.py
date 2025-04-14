@@ -2500,7 +2500,8 @@ class handler(BaseHTTPRequestHandler):
                 google_id = None
                 auth_header = self.headers.get('Authorization', '')
                 
-                # Using global is_dev_mode variable
+                # Check if test mode is enabled
+                test_mode = is_test_mode_enabled(self.headers, self.path)
                 
                 if auth_header.startswith('Bearer '):
                     token = auth_header[7:]
@@ -2517,123 +2518,22 @@ class handler(BaseHTTPRequestHandler):
                                 # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
-                                
-                                # If no user found for this Google ID, create a new user
-                                if not user_id and supabase_client and google_id:
-                                    try:
-                                        # Create a new user with this Google ID
-                                        now = datetime.datetime.now().isoformat()
-                                        new_user_id = str(uuid.uuid4())
-                                        new_user = {
-                                            "id": new_user_id,
-                                            "google_id": google_id,
-                                            "email": f"user_{google_id}@example.com",  # Placeholder
-                                            "name": f"User {google_id[:8]}",  # Placeholder
-                                            "is_active": True,
-                                            "created_at": now,
-                                            "updated_at": now
-                                        }
-                                        
-                                        # Insert the new user
-                                        user_response = supabase_client.table('users').insert(new_user).execute()
-                                        user_id = new_user_id
-                                        log_message(f"Created new user with ID {user_id} for Google ID {google_id}")
-                                    except Exception as create_error:
-                                        log_message(f"Error creating user for Google ID: {str(create_error)}", "ERROR")
                             else:
                                 # Use the token directly as the user_id
                                 user_id = token
                                 log_message(f"Creating ingredient for user: {user_id}")
                         except Exception as e:
                             log_message(f"Error extracting user_id from token: {str(e)}", "ERROR")
-                            if is_dev_mode:
-                                # In dev mode, use a development user ID
-                                user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                                log_message(f"Using development user ID: {user_id}")
-                            else:
-                                status_code = 401
-                                response_content = json.dumps({"error": "Invalid authentication token"})
-                                self._send_response(status_code, content_type, response_content)
-                                return
-                elif is_dev_mode:
-                    # In development mode, allow requests without authentication
+                            status_code = 401
+                            response_content = json.dumps({"error": "Invalid authentication token"})
+                            self._send_response(status_code, content_type, response_content)
+                            return
+                elif test_mode or is_dev_mode:
+                    # In test mode or development mode, use a development user ID
                     user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                    log_message(f"Development mode: Using default user ID: {user_id}")
-                    
-                    # Ensure the development user exists in the database
-                    if supabase_client:
-                        try:
-                            # Check if the user exists
-                            user_check = supabase_client.table('users').select('id').match({'id': user_id}).execute()
-                            
-                            # If user doesn't exist, create a new user record
-                            if not user_check.data or len(user_check.data) == 0:
-                                log_message(f"Creating development user with ID {user_id} in database")
-                                
-                                # Create a new user record with minimal information
-                                now = datetime.datetime.now().isoformat()
-                                new_user = {
-                                    "id": user_id,
-                                    "email": "dev@example.com",
-                                    "name": "Development User",
-                                    "is_active": True,
-                                    "created_at": now,
-                                    "updated_at": now
-                                }
-                                
-                                # Insert the new user
-                                try:
-                                    user_response = supabase_client.table('users').insert(new_user).execute()
-                                    log_message(f"Created development user in database")
-                                except Exception as user_error:
-                                    log_message(f"Error creating development user: {str(user_error)}", "WARNING")
-                            
-                            # Check if the user has any ingredients
-                            ingredient_check = supabase_client.table('ingredients').select('id').match({'user_id': user_id}).execute()
-                            
-                            # If user has no ingredients, create some sample ingredients
-                            if not ingredient_check.data or len(ingredient_check.data) == 0:
-                                log_message(f"Creating sample ingredients for development user")
-                                
-                                # Create sample ingredients
-                                now = datetime.datetime.now().isoformat()
-                                sample_ingredients = [
-                                    {
-                                        "name": "Tomato",
-                                        "quantity": 2,
-                                        "unit": "pieces",
-                                        "user_id": user_id,
-                                        "created_at": now,
-                                        "updated_at": now
-                                    },
-                                    {
-                                        "name": "Onion",
-                                        "quantity": 1,
-                                        "unit": "pieces",
-                                        "user_id": user_id,
-                                        "created_at": now,
-                                        "updated_at": now
-                                    },
-                                    {
-                                        "name": "Garlic",
-                                        "quantity": 3,
-                                        "unit": "cloves",
-                                        "user_id": user_id,
-                                        "created_at": now,
-                                        "updated_at": now
-                                    }
-                                ]
-                                
-                                # Insert the sample ingredients
-                                try:
-                                    ingredient_response = supabase_client.table('ingredients').insert(sample_ingredients).execute()
-                                    log_message(f"Created {len(sample_ingredients)} sample ingredients for development user")
-                                except Exception as ingredient_error:
-                                    log_message(f"Error creating sample ingredients: {str(ingredient_error)}", "WARNING")
-                        except Exception as check_error:
-                            log_message(f"Error checking if development user exists: {str(check_error)}", "WARNING")
+                    log_message(f"Test/Dev mode: Using default user ID: {user_id}")
                 else:
-                    # No auth header and not in development mode
+                    # No auth header and not in test/dev mode
                     status_code = 401
                     log_message("No Authorization header provided", "WARNING")
                     response_content = json.dumps({"error": "Authentication required"})
