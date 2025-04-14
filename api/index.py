@@ -26,17 +26,25 @@ def is_valid_uuid(val):
 def is_test_mode_enabled(headers, path):
     """Check if test mode is enabled via headers or query parameters"""
     # Check for test mode header
-    test_mode = headers.get('X-Test-Mode') == 'true'
+    test_header = headers.get('X-Test-Mode')
+    test_mode = test_header == 'true'
+    log_message(f"X-Test-Mode header: '{test_header}'")
     
-    # Also check query parameters for test mode
-    if '?' in path:
-        query_string = path.split('?', 1)[1]
-        query_params = dict(parse_qsl(query_string))
-        test_mode = test_mode or query_params.get('test_mode') == 'true'
+    # Also check query parameters for test mode using urlparse
+    parsed_url = urlparse(path)
+    query_params = dict(parse_qsl(parsed_url.query))
+    
+    # Check for test_mode in query parameters
+    test_param = query_params.get('test_mode')
+    # Accept any value for test_mode (not just 'true')
+    test_mode = test_mode or (test_param is not None)
+    log_message(f"test_mode query parameter: '{test_param}'")
     
     # Log if test mode is enabled
     if test_mode:
         log_message("Test mode enabled for this request")
+    else:
+        log_message("Test mode NOT enabled for this request")
     
     return test_mode
 
@@ -2500,10 +2508,18 @@ class handler(BaseHTTPRequestHandler):
                 google_id = None
                 auth_header = self.headers.get('Authorization', '')
                 
+                # Log the full path for debugging
+                log_message(f"Full request path: '{self.path}'")
+                parsed_url = urlparse(self.path)
+                log_message(f"Path component: '{parsed_url.path}', Query: '{parsed_url.query}'")
+                
                 # Check if test mode is enabled
                 test_mode = is_test_mode_enabled(self.headers, self.path)
                 
-                log_message(f"Token: {auth_header}")
+                # Log all headers for debugging
+                log_message(f"All headers: {dict(self.headers)}")
+                log_message(f"Authorization header: '{auth_header}'")
+                
                 if auth_header.startswith('Bearer '):
                     token = auth_header[7:]
                     # Extract user information from the token
@@ -2734,9 +2750,13 @@ class handler(BaseHTTPRequestHandler):
         # Handle CORS preflight requests
         log_message(f"OPTIONS request: {self.path}")
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        
+        # Add CORS headers - use the request origin or allow all origins
+        origin = self.headers.get('Origin', '*')
+        self.send_header('Access-Control-Allow-Origin', origin)
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Test-Mode')
+        self.send_header('Access-Control-Allow-Credentials', 'true')
         self.end_headers()
     
     def _send_response(self, status_code, content_type, response_content):
@@ -2745,12 +2765,12 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(status_code)
             self.send_header('Content-Type', content_type)
             
-            # More permissive CORS headers for development
-            self.send_header('Access-Control-Allow-Origin', '*')
+            # Add CORS headers - use the request origin or allow all origins
+            origin = self.headers.get('Origin', '*')
+            self.send_header('Access-Control-Allow-Origin', origin)
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Test-Mode')
             self.send_header('Access-Control-Allow-Credentials', 'true')
-            self.send_header('Access-Control-Max-Age', '86400')  # 24 hours
             
             # Add cache control headers to prevent caching
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
