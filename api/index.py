@@ -40,12 +40,14 @@ def is_test_mode_enabled(headers, path):
     test_mode = test_mode or (test_param is not None)
     log_message(f"test_mode query parameter: '{test_param}'")
     
-    # For Vercel deployment, also check for specific Vercel headers that indicate it's a test environment
-    # This makes it easier to test in production without adding query parameters
+    # Only enable test mode for preview deployments, not production
     if headers.get('x-vercel-deployment-url') and 'vercel.app' in headers.get('x-vercel-deployment-url', ''):
-        # If the request is coming from a Vercel preview deployment, enable test mode
+        # Log the deployment URL but don't automatically enable test mode
         log_message(f"Vercel deployment URL: {headers.get('x-vercel-deployment-url')}")
-        test_mode = True
+        # Only enable test mode for preview deployments that have 'preview' in the URL
+        if 'preview' in headers.get('x-vercel-deployment-url', ''):
+            log_message("Preview deployment detected, enabling test mode")
+            test_mode = True
     
     # Check for specific referer that indicates it's a test
     referer = headers.get('referer', '')
@@ -2638,9 +2640,39 @@ class handler(BaseHTTPRequestHandler):
                                 log_message(f"User with ID {valid_user_id} not found in database, creating new user record")
                                 
                                 # Create a new user record with minimal information
+                                # Extract email from headers if available
+                                email = None
+                                # Try to get email from Vercel OIDC token if available
+                                oidc_token = self.headers.get('x-vercel-oidc-token', '')
+                                if oidc_token and oidc_token.startswith('eyJ'):
+                                    try:
+                                        # Extract email from token payload if available
+                                        # This is a simplified approach - in production you'd use a proper JWT library
+                                        token_parts = oidc_token.split('.')
+                                        if len(token_parts) >= 2:
+                                            import base64
+                                            # Decode the payload part (index 1)
+                                            payload = token_parts[1]
+                                            # Add padding if needed
+                                            payload += '=' * ((4 - len(payload) % 4) % 4)
+                                            try:
+                                                decoded = json.loads(base64.b64decode(payload).decode('utf-8'))
+                                                if 'email' in decoded:
+                                                    email = decoded['email']
+                                                    log_message(f"Extracted email from OIDC token: {email}")
+                                            except Exception as decode_error:
+                                                log_message(f"Error decoding token payload: {str(decode_error)}", "WARNING")
+                                    except Exception as token_error:
+                                        log_message(f"Error extracting email from token: {str(token_error)}", "WARNING")
+                                
+                                # Use a proper domain for the email
+                                if not email:
+                                    # Use a proper domain that you control
+                                    email = f"user_{valid_user_id[:8]}@chef-bot-app.com"
+                                
                                 new_user = {
                                     "id": valid_user_id,
-                                    "email": f"user_{valid_user_id[:8]}@example.com",  # Generate a placeholder email
+                                    "email": email,
                                     "name": f"User {valid_user_id[:8]}",  # Generate a placeholder name
                                     "is_active": True,
                                     "created_at": now,
