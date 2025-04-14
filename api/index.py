@@ -2503,6 +2503,7 @@ class handler(BaseHTTPRequestHandler):
                 # Check if test mode is enabled
                 test_mode = is_test_mode_enabled(self.headers, self.path)
                 
+                log_message(f"Token: {auth_header}")
                 if auth_header.startswith('Bearer '):
                     token = auth_header[7:]
                     # Extract user information from the token
