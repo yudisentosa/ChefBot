@@ -53,7 +53,7 @@ def is_test_mode_enabled(headers, path):
     referer = headers.get('referer', '')
     if referer and ('localhost' in referer or '127.0.0.1' in referer):
         log_message(f"Local development referer detected: {referer}")
-        test_mode = True
+        # test_mode = True
     
     # Log if test mode is enabled
     if test_mode:
@@ -355,11 +355,6 @@ class handler(BaseHTTPRequestHandler):
                             query_user_id = get_user_id_from_google_id(google_id)
                         elif user_id and is_valid_uuid(user_id):
                             query_user_id = user_id
-                        else:
-                            # Generate a consistent UUID for development mode
-                            dev_user_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                            log_message(f"Using generated UUID for development: {dev_user_uuid}")
-                            query_user_id = dev_user_uuid
                         
                         log_message(f"Deleting ingredient {ingredient_id} for user_id: {query_user_id}")
                         
@@ -617,10 +612,6 @@ class handler(BaseHTTPRequestHandler):
                             # If user_id is a valid UUID, use it directly
                             query_user_id = user_id
                             log_message(f"Using valid UUID: {query_user_id}")
-                        elif is_dev_mode:
-                            # In development mode, use the development user ID
-                            query_user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                            log_message(f"Using development user ID: {query_user_id}")
                         else:
                             # No valid user ID available and not in development mode
                             log_message("No valid user ID available", "WARNING")
@@ -2380,11 +2371,6 @@ class handler(BaseHTTPRequestHandler):
                             query_user_id = get_user_id_from_google_id(google_id)
                         elif user_id and is_valid_uuid(user_id):
                             query_user_id = user_id
-                        else:
-                            # Generate a consistent UUID for development mode
-                            dev_user_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                            log_message(f"Using generated UUID for development: {dev_user_uuid}")
-                            query_user_id = dev_user_uuid
                         
                         log_message(f"Querying ingredients for user_id: {query_user_id}")
                         
@@ -2549,14 +2535,29 @@ class handler(BaseHTTPRequestHandler):
                     # Extract user information from the token
                     if token:
                         try:
-                            # Check if this is a Google token
-                            if token.startswith('google_'):
-                                # Extract the Google ID from the token - only the part before any underscores
+                            # Try to detect if this is a Google ID token (JWT)
+                            if token.count('.') == 2:
+                                # Parse JWT payload to extract Google ID (sub)
+                                import base64
+                                jwt_parts = token.split('.')
+                                payload_b64 = jwt_parts[1] + '=' * ((4 - len(jwt_parts[1]) % 4) % 4)
+                                payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode('utf-8'))
+                                google_id = payload.get('sub')
+                                log_message(f"Extracted Google ID (sub) from JWT: {google_id}")
+                                if google_id:
+                                    user_id = get_user_id_from_google_id(google_id)
+                                    log_message(f"Retrieved user_id for Google auth: {user_id}")
+                                else:
+                                    log_message(f"No 'sub' claim found in JWT payload", "WARNING")
+                                    status_code = 401
+                                    response_content = json.dumps({"error": "Invalid Google ID token: missing sub claim"})
+                                    self._send_response(status_code, content_type, response_content)
+                                    return
+                            elif token.startswith('google_'):
+                                # Legacy: Extract the Google ID from the token - only the part before any underscores
                                 raw_id = token.replace('google_', '')
                                 google_id = raw_id.split('_')[0] if '_' in raw_id else raw_id
                                 log_message(f"Extracted Google ID from token: {google_id}")
-                                
-                                # Get the corresponding user_id from the Google ID
                                 user_id = get_user_id_from_google_id(google_id)
                                 log_message(f"Retrieved user_id for Google auth: {user_id}")
                             else:
@@ -2569,10 +2570,6 @@ class handler(BaseHTTPRequestHandler):
                             response_content = json.dumps({"error": "Invalid authentication token"})
                             self._send_response(status_code, content_type, response_content)
                             return
-                elif test_mode or is_dev_mode:
-                    # In test mode or development mode, use a development user ID
-                    user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, 'dev.example.com'))
-                    log_message(f"Test/Dev mode: Using default user ID: {user_id}")
                 else:
                     # No auth header and not in test/dev mode
                     status_code = 401

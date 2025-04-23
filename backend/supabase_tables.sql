@@ -1,20 +1,10 @@
 -- Chef Bot Supabase Tables
 -- This SQL script updates existing tables to use UUIDs
+-- Create a backup of existing tables
+CREATE TABLE IF NOT EXISTS public.users_backup AS SELECT * FROM public.users;
+CREATE TABLE IF NOT EXISTS public.ingredients_backup AS SELECT * FROM public.ingredients;
+CREATE TABLE IF NOT EXISTS public.saved_recipes_backup AS SELECT * FROM public.saved_recipes;
 
--- First, disable Row Level Security to allow modifications
-ALTER TABLE IF EXISTS public.users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.ingredients DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.saved_recipes DISABLE ROW LEVEL SECURITY;
-
--- -- Create a backup of existing tables
--- CREATE TABLE IF NOT EXISTS public.users_backup AS SELECT * FROM public.users;
--- CREATE TABLE IF NOT EXISTS public.ingredients_backup AS SELECT * FROM public.ingredients;
--- CREATE TABLE IF NOT EXISTS public.saved_recipes_backup AS SELECT * FROM public.saved_recipes;
-
--- Drop existing tables (if they exist)
-DROP TABLE IF EXISTS public.ingredients;
-DROP TABLE IF EXISTS public.saved_recipes;
-DROP TABLE IF EXISTS public.users;
 
 -- Recreate Users Table with UUID
 CREATE TABLE public.users (

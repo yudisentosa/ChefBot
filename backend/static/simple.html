@@ -779,6 +779,7 @@
       fetch(`/api/v1/ingredients/${id}`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': authToken ? `Bearer ${authToken}` : ''
         }
       })
@@ -953,14 +954,11 @@
       
       // For authenticated users, use the API
       const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
       };
-      
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
-        console.log('Adding Authorization header for authenticated user');
-      }
-      
+
+      console.log('authToken:', authToken);
       console.log('Sending POST request to /api/v1/ingredients');
       fetch('/api/v1/ingredients', {
         method: 'POST',
@@ -1020,7 +1018,8 @@
       fetch('/api/v1/recipes/suggest', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify({ servings: parseInt(servings) })
       })
@@ -1817,7 +1816,11 @@
       try {
         console.log(`Deleting ingredient ${id}`);
         const response = await fetch(`/api/v1/ingredients/${id}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authToken ? `Bearer ${authToken}` : ''
+          }
         });
         
         if (!response.ok) {
@@ -1849,6 +1852,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({
             name: name,
@@ -1882,6 +1886,7 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({ unit: newUnit })
         });

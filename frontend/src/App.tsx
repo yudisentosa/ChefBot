@@ -117,7 +117,16 @@ function App() {
     if (!newIngredient.name.trim()) return;
     
     try {
-      const response = await axios.post('/api/v1/ingredients', newIngredient);
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.post(
+        '/api/v1/ingredients',
+        newIngredient,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       
       // Add to local state
       setIngredients([...ingredients, response.data]);

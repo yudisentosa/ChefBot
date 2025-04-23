@@ -961,6 +961,7 @@
         console.log('Adding Authorization header for authenticated user');
       }
       
+      console.log('authToken:', authToken);
       console.log('Sending POST request to /api/v1/ingredients');
       fetch('/api/v1/ingredients', {
         method: 'POST',
