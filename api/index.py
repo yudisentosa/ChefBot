@@ -2398,13 +2398,19 @@ class handler(BaseHTTPRequestHandler):
                     api_key = os.environ.get('CHEFBOT_API_KEY')
                     if not api_key:
                         log_message("CHEFBOT_API_KEY not found in environment variables", "WARNING")
-                        api_key = "sk-9b6c218b1fc74804a160de966c97957a"  # Fallback key for development
+                    
+                    # Check if recipe_idea was provided in the request
+                    recipe_idea = ''
+                    if 'recipe_idea' in data and data['recipe_idea']:
+                        recipe_idea = data['recipe_idea']
+                        log_message(f"Recipe idea provided: {recipe_idea}")
                     
                     # Create the prompt for DeepSeek
-                    prompt = f"""Generate a recipe using some or all of these ingredients: {', '.join(ingredients)}. 
-                    Create a common dish (chinese, korean, western, indonesia) with ingredients, you dont have to use all ingredients
-                    Make sure the recipe is well-known in indonesia, for example like spagethi, mie goreng, soto, etc
-                    Not only main dish, you can also create a side dish or dessert
+                    recipe_idea_text = f"\nI'm specifically looking for: {recipe_idea}" if recipe_idea else ""
+                    
+                    prompt = f"""Generate a recipe using some or all of these ingredients: {', '.join(ingredients)}. {recipe_idea_text}
+                    Create a recipe that fits within a well-known dish category commonly enjoyed in Indonesia (e.g., spaghetti, mie goreng, soto, nasi goreng, ayam bakar, etc.). Stick to familiar and culturally relevant styles: Indonesian, Chinese, Korean, or Western comfort food.
+                    Avoid experimental or fusion dishes that mix incompatible tastes (e.g., ice cream with nasi goreng). The result should be something a typical Indonesian home cook would recognize and feel comfortable preparing.
                     The recipe should serve {servings} people.
                     Format the response as a JSON object with these fields:
                     - recipe_name: A name for the recipe
