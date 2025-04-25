@@ -2529,14 +2529,14 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Check for Vercel proxy signature as an alternative authentication method
                 vercel_proxy_sig = self.headers.get('x-vercel-proxy-signature', '')
-                if vercel_proxy_sig.startswith('Bearer '):
-                    log_message(f"Found Vercel proxy signature: {vercel_proxy_sig[:15]}...")
-                    # Use a consistent user ID based on the Vercel project
-                    project_id = self.headers.get('x-vercel-id', '').split(':')[0] if self.headers.get('x-vercel-id') else 'default'
-                    user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f'vercel-{project_id}'))
-                    log_message(f"Using Vercel project user ID: {user_id}")
+                # if vercel_proxy_sig.startswith('Bearer '):
+                #     log_message(f"Found Vercel proxy signature: {vercel_proxy_sig[:15]}...")
+                #     # Use a consistent user ID based on the Vercel project
+                #     project_id = self.headers.get('x-vercel-id', '').split(':')[0] if self.headers.get('x-vercel-id') else 'default'
+                #     user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f'vercel-{project_id}'))
+                #     log_message(f"Using Vercel project user ID: {user_id}")
                 
-                elif auth_header.startswith('Bearer '):
+                if auth_header.startswith('Bearer '):
                     token = auth_header[7:]
                     # Extract user information from the token
                     if token:
