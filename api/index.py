@@ -2419,18 +2419,38 @@ class handler(BaseHTTPRequestHandler):
                     if available_ingredients_only:
                         available_only_text = "\nIMPORTANT: Use ONLY the ingredients listed above. Do not suggest any missing ingredients."
                     
-                    prompt = f"""Generate a recipe using some or all of these ingredients: {', '.join(ingredients)}. {recipe_idea_text}{available_only_text}
-                    Create a recipe that fits within a well-known dish category commonly enjoyed in Indonesia (e.g., spaghetti, mie goreng, soto, nasi goreng, ayam bakar, etc.). Stick to familiar and culturally relevant styles: Indonesian, Chinese, Korean, or Western comfort food.
-                    Avoid experimental or fusion dishes that mix incompatible tastes (e.g., ice cream with nasi goreng). The result should be something a typical Indonesian home cook would recognize and feel comfortable preparing.
+                    prompt = f"""
+                    
+                    You are a professional recipe developer creating meals from a given set of ingredients: {', '.join(ingredients)}. {recipe_idea_text}{available_only_text}
+
+                    Before generating the final recipe, follow a three-step thinking process:
+
+                    1. **Ingredient Compatibility Analysis**:
+                    - Identify which ingredients are compatible with each other based on taste, cuisine style, and cooking methods.
+                    - Eliminate any that would clash or create an unpleasant combination, especially sweet-savory or hot-cold contradictions (e.g., granola with sambal or yogurt with fried rice).
+                    - Absolutely do not include garnishes or ingredients that clash with the dish type, sweet food with savory garnished or savory food with sweet garnishes. For example, do not add bawang goreng to yogurt or chia seeds to nasi goreng.
+
+                    2. **Head Chef Review**:
+                    - As a seasoned Indonesian head chef, evaluate if the ingredient combination fits within traditional or familiar dishes (like mie goreng, ayam bakar, soto, etc.).
+                    - Reject combinations that would confuse or turn away a typical Indonesian home cook.
+                    - Suggest a suitable dish category (e.g., nasi goreng, tumis, sup, mie kuah, etc.)
+
+                    3. **Final Recipe Construction**:
+                    - Use the approved ingredients and suggested dish type to build a recipe.
+                    - The result should be tasty, logical, and culturally relevant.
+
                     The recipe should serve {servings} people.
-                    Format the response as a JSON object with these fields:
+
+                    Output a well-structured JSON object with these fields:
                     - recipe_name: A name for the recipe
-                    - ingredients_required: An array of strings, each one an ingredient with quantity
-                    - missing_ingredients: An array of strings for ingredients not in the original list
-                    - instructions: An array of strings, each one a step in the recipe
+                    - ingredients_required: An array of strings, each with quantity and ingredient name
+                    - missing_ingredients: An array of ingredients not in the original list but needed
+                    - instructions: An array of strings, each one a cooking step
                     - difficulty_level: Easy, Medium, or Hard
                     - cooking_time: Estimated time in minutes
                     - servings: {servings}
+
+                    Only include the JSON in your response. Do not show the reasoning steps, but use them to guide your answer.
                     """
                     
                     log_message("Calling DeepSeek API for recipe suggestion")
@@ -2443,13 +2463,13 @@ class handler(BaseHTTPRequestHandler):
                     
                     deepseek_url = "https://api.deepseek.com/v1/chat/completions"
                     deepseek_payload = {
-                        "model": "deepseek-reasoner",
+                        "model": "deepseek-chat",
                         "messages": [
-                            {"role": "system", "content": "You are a helpful cooking assistant that generates recipes based on available ingredients."},
+                            {"role": "system", "content": "You are a seasoned Indonesian cooking assistant. You only generate recipes that are familiar to typical Indonesian home cooks, using ingredients that make culinary sense together. You reject odd combinations, especially mixing sweet and savory in inappropriate ways (e.g., yogurt with fried shallots)."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 1.3,
-                        "max_tokens": 1000
+                        "temperature": 0.4,
+                        "max_tokens": 4000
                     }
                     
                     # Make the request to DeepSeek
