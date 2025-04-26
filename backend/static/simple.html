@@ -399,6 +399,17 @@
                 class="add-input w-full"
               />
               <p class="text-xs text-gray-500 mt-1">Describe what you're in the mood for: cuisine type, flavor profile, meal type, etc.</p>
+              
+              <div class="mt-3 flex items-center">
+                <input
+                  type="checkbox"
+                  id="available-ingredients-only"
+                  class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label for="available-ingredients-only" class="ml-2 block text-sm text-gray-700">
+                  Create only with available ingredients
+                </label>
+              </div>
             </div>
           </div>
           
@@ -1056,6 +1067,7 @@
     function getRecipe() {
       const servings = servingsSelect.value;
       const recipeIdea = document.getElementById('recipe-idea-input').value.trim();
+      const availableIngredientsOnly = document.getElementById('available-ingredients-only').checked;
       
       recipeContainer.innerHTML = `
         <div class="p-6 text-center">
@@ -1066,12 +1078,21 @@
       
       // Prepare request payload
       const payload = { 
-        servings: parseInt(servings)
+        servings: parseInt(servings),
+        available_ingredients_only: availableIngredientsOnly
       };
       
       // Add recipe idea if provided
       if (recipeIdea) {
         payload.recipe_idea = recipeIdea;
+      }
+      
+      // If checkbox is checked but no recipe idea is provided, add a default message
+      if (availableIngredientsOnly && !recipeIdea) {
+        payload.recipe_idea = "create only with available ingredients";
+      } else if (availableIngredientsOnly && recipeIdea) {
+        // If both are provided, append to the existing recipe idea
+        payload.recipe_idea += ", create only with available ingredients";
       }
       
       fetch('/api/v1/recipes/suggest', {

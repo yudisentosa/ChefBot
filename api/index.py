@@ -2405,10 +2405,21 @@ class handler(BaseHTTPRequestHandler):
                         recipe_idea = data['recipe_idea']
                         log_message(f"Recipe idea provided: {recipe_idea}")
                     
+                    # Check if available_ingredients_only flag was set
+                    available_ingredients_only = False
+                    if 'available_ingredients_only' in data and data['available_ingredients_only']:
+                        available_ingredients_only = bool(data['available_ingredients_only'])
+                        log_message(f"Available ingredients only: {available_ingredients_only}")
+                    
                     # Create the prompt for DeepSeek
                     recipe_idea_text = f"\nI'm specifically looking for: {recipe_idea}" if recipe_idea else ""
                     
-                    prompt = f"""Generate a recipe using some or all of these ingredients: {', '.join(ingredients)}. {recipe_idea_text}
+                    # Add constraint for available ingredients only if requested
+                    available_only_text = ""
+                    if available_ingredients_only:
+                        available_only_text = "\nIMPORTANT: Use ONLY the ingredients listed above. Do not suggest any missing ingredients."
+                    
+                    prompt = f"""Generate a recipe using some or all of these ingredients: {', '.join(ingredients)}. {recipe_idea_text}{available_only_text}
                     Create a recipe that fits within a well-known dish category commonly enjoyed in Indonesia (e.g., spaghetti, mie goreng, soto, nasi goreng, ayam bakar, etc.). Stick to familiar and culturally relevant styles: Indonesian, Chinese, Korean, or Western comfort food.
                     Avoid experimental or fusion dishes that mix incompatible tastes (e.g., ice cream with nasi goreng). The result should be something a typical Indonesian home cook would recognize and feel comfortable preparing.
                     The recipe should serve {servings} people.
@@ -2432,12 +2443,12 @@ class handler(BaseHTTPRequestHandler):
                     
                     deepseek_url = "https://api.deepseek.com/v1/chat/completions"
                     deepseek_payload = {
-                        "model": "deepseek-chat",
+                        "model": "deepseek-reasoner",
                         "messages": [
                             {"role": "system", "content": "You are a helpful cooking assistant that generates recipes based on available ingredients."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.7,
+                        "temperature": 1.3,
                         "max_tokens": 1000
                     }
                     
