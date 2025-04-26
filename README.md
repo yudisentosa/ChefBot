@@ -23,7 +23,7 @@ Chef Bot is an AI-powered web application that helps users discover recipes base
 
 ### Live Demo
 
-🔗 [Chef Bot Live Demo](https://chef-bot.vercel.app/)
+🔗 [Chef Bot Live Demo](https://mychefbot.vercel.app/)
 
 <div align="center">
 <img src="https://via.placeholder.com/800x450.png?text=Chef+Bot+Screenshot" alt="Chef Bot Screenshot" width="800">
