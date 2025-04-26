@@ -2468,7 +2468,7 @@ class handler(BaseHTTPRequestHandler):
                             {"role": "system", "content": "You are a seasoned Indonesian cooking assistant. You only generate recipes that are familiar to typical Indonesian home cooks, using ingredients that make culinary sense together. You reject odd combinations, especially mixing sweet and savory in inappropriate ways (e.g., yogurt with fried shallots)."},
                             {"role": "user", "content": prompt}
                         ],
-                        "temperature": 0.4,
+                        "temperature": 0.7,
                         "max_tokens": 4000
                     }
                     
