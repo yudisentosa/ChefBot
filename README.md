@@ -7,7 +7,9 @@
 [![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel)](https://vercel.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
-![Chef Bot Logo](https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/utensils.svg)
+<div align="center">
+  <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/6.x/svgs/solid/utensils.svg" alt="Chef Bot Logo" width="32" height="32" style="min-width: 64px; min-height: 64px; max-width: 64px; max-height: 64px;">
+</div>
 
 *Your AI-powered kitchen companion that suggests delicious recipes based on ingredients you already have.*
 
@@ -57,13 +59,13 @@ git clone https://github.com/yourusername/chef-bot.git
 cd chef-bot
 ```
 
-1. **Install dependencies**
+2. **Install dependencies**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-1. **Set up environment variables**
+3. **Set up environment variables**
 
 Create a `.env` file in the project root with the following variables:
 
@@ -75,7 +77,7 @@ GOOGLE_CLIENT_ID=your_google_oauth_client_id
 CHEFBOT_API_KEY=your_deepseek_api_key
 ```
 
-1. **Run the application locally**
+4. **Run the application locally**
 
 ```bash
 python -m uvicorn backend.api.index:app --reload
@@ -146,28 +148,28 @@ The application uses Supabase (PostgreSQL) with the following tables:
 
 1. **Fork or clone this repository**
 
-1. **Create a Vercel account** at [vercel.com](https://vercel.com)
+2. **Create a Vercel account** at [vercel.com](https://vercel.com)
 
-1. **Install Vercel CLI**
+3. **Install Vercel CLI**
 
 ```bash
 npm install -g vercel
 ```
 
-1. **Login to Vercel**
+4. **Login to Vercel**
 
 ```bash
 vercel login
 ```
 
-1. **Deploy from your local project**
+5. **Deploy from your local project**
 
 ```bash
 cd chef_bot
 vercel
 ```
 
-1. **Configure environment variables**
+6. **Configure environment variables**
 
 Add the following environment variables in the Vercel dashboard:
 
@@ -177,7 +179,7 @@ Add the following environment variables in the Vercel dashboard:
 - `SECRET_KEY`
 - `GOOGLE_CLIENT_ID`
 
-1. **Update Google OAuth settings**
+7. **Update Google OAuth settings**
 
 Add your Vercel deployment URL to the authorized JavaScript origins in your Google Cloud Console.
 
